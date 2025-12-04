@@ -165,3 +165,147 @@ def test_non_admin_cannot_access_audit_logs():
     # Comercial tries to list audit logs
     resp = client.get("/api/v1/audits/", headers=headers)
     assert resp.status_code == 403
+
+
+def test_admin_updates_user_creates_audit():
+    """Verify update user operation creates audit log."""
+    # Create admin and target user
+    admin_id = None
+    admin_email = None
+    target_id = None
+    target_email = None
+    
+    with Session(_test_engine) as session:
+        admin_in = UserCreate(nombre="Admin", email="admin_update@example.com", password="AdminPass123", rol="ADMIN")
+        admin = user_crud.create_user(session=session, user_in=admin_in)
+        admin_id = admin.id_usuario
+        admin_email = admin.email
+        
+        target_in = UserCreate(nombre="Target", email="target_update@example.com", password="TargetPass123", rol="COMERCIAL")
+        target = user_crud.create_user(session=session, user_in=target_in)
+        target_id = target.id_usuario
+        target_email = target.email
+
+    token = create_access_token(subject=admin_email)
+    headers = {"Authorization": f"Bearer {token}"}
+    client = TestClient(fastapi_app)
+
+    # Admin updates target user
+    update_data = {"nombre": "Target Updated"}
+    resp = client.put(f"/api/v1/usuarios/{target_id}", json=update_data, headers=headers)
+    assert resp.status_code == 200
+    updated_data = resp.json()
+    assert updated_data["nombre"] == "Target Updated"
+
+    # Verify audit log was created
+    with Session(_test_engine) as session:
+        statement = select(AuditLog).where(
+            AuditLog.action == "update_user",
+            AuditLog.actor_email == admin_email,
+            AuditLog.target_email == target_email
+        )
+        results = session.exec(statement).all()
+        assert len(results) >= 1
+
+
+def test_user_updates_own_profile_creates_audit():
+    """Verify user updating own profile creates audit log."""
+    user_id = None
+    user_email = None
+    
+    with Session(_test_engine) as session:
+        user_in = UserCreate(nombre="User", email="user_self_update@example.com", password="UserPass123", rol="COMERCIAL")
+        user = user_crud.create_user(session=session, user_in=user_in)
+        user_id = user.id_usuario
+        user_email = user.email
+
+    token = create_access_token(subject=user_email)
+    headers = {"Authorization": f"Bearer {token}"}
+    client = TestClient(fastapi_app)
+
+    # User updates own profile
+    update_data = {"nombre": "User Updated"}
+    resp = client.put(f"/api/v1/usuarios/{user_id}", json=update_data, headers=headers)
+    assert resp.status_code == 200
+
+    # Verify audit log was created
+    with Session(_test_engine) as session:
+        statement = select(AuditLog).where(
+            AuditLog.action == "update_user",
+            AuditLog.actor_email == user_email
+        )
+        results = session.exec(statement).all()
+        assert len(results) >= 1
+
+
+def test_admin_deletes_user_creates_audit():
+    """Verify delete user operation creates audit log."""
+    # Create admin and target user
+    admin_id = None
+    admin_email = None
+    target_id = None
+    target_email = None
+    
+    with Session(_test_engine) as session:
+        admin_in = UserCreate(nombre="Admin", email="admin_delete@example.com", password="AdminPass123", rol="ADMIN")
+        admin = user_crud.create_user(session=session, user_in=admin_in)
+        admin_id = admin.id_usuario
+        admin_email = admin.email
+        
+        target_in = UserCreate(nombre="Target", email="target_delete@example.com", password="TargetPass123", rol="COMERCIAL")
+        target = user_crud.create_user(session=session, user_in=target_in)
+        target_id = target.id_usuario
+        target_email = target.email
+
+    token = create_access_token(subject=admin_email)
+    headers = {"Authorization": f"Bearer {token}"}
+    client = TestClient(fastapi_app)
+
+    # Admin deletes target user
+    resp = client.delete(f"/api/v1/usuarios/{target_id}", headers=headers)
+    assert resp.status_code == 204
+
+    # Verify audit log was created
+    with Session(_test_engine) as session:
+        statement = select(AuditLog).where(
+            AuditLog.action == "delete_user",
+            AuditLog.actor_email == admin_email,
+            AuditLog.target_email == target_email
+        )
+        results = session.exec(statement).all()
+        assert len(results) >= 1
+
+
+def test_non_admin_cannot_delete_user_no_audit():
+    """Verify non-ADMIN cannot delete user and no audit log is created."""
+    # Create comercial user and target
+    comercial_email = None
+    target_id = None
+    target_email = None
+    
+    with Session(_test_engine) as session:
+        comercial_in = UserCreate(nombre="Comercial", email="comercial_delete@example.com", password="CommPass123", rol="COMERCIAL")
+        comercial = user_crud.create_user(session=session, user_in=comercial_in)
+        comercial_email = comercial.email
+        
+        target_in = UserCreate(nombre="Target", email="target_delete2@example.com", password="TargetPass123", rol="COMERCIAL")
+        target = user_crud.create_user(session=session, user_in=target_in)
+        target_id = target.id_usuario
+        target_email = target.email
+
+    token = create_access_token(subject=comercial_email)
+    headers = {"Authorization": f"Bearer {token}"}
+    client = TestClient(fastapi_app)
+
+    # Comercial tries to delete target user
+    resp = client.delete(f"/api/v1/usuarios/{target_id}", headers=headers)
+    assert resp.status_code == 403
+
+    # Verify NO audit log was created
+    with Session(_test_engine) as session:
+        statement = select(AuditLog).where(
+            AuditLog.action == "delete_user",
+            AuditLog.target_email == target_email
+        )
+        results = session.exec(statement).all()
+        assert len(results) == 0
