@@ -1,0 +1,14 @@
+# Entorno virtual
+venv/
+
+# Base de datos local
+mora_comercial.db
+
+# Python basura
+__pycache__/
+*.pyc
+
+# Entornos / IDE
+.env
+.vscode/
+.idea/
