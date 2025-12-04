@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # --- Configuración de Seguridad (Ejemplos) ---
     SECRET_KEY: str = "UNA_CLAVE_SUPER_SECRETA_Y_LARGA" 
     # ^^^ CAMBIAR ESTO EN PRODUCCIÓN ^^^
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
     # --- Configuración de la Base de Datos ---
     # Nota: La URL de DB la manejamos en session.py, pero es bueno tener una variable aquí.

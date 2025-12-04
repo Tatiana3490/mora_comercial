@@ -8,6 +8,7 @@ from .client import Client, ClientCreate, ClientRead, ClientBase
 from .articulo import Articulo, ArticuloCreate, ArticuloRead, ArticuloBase
 from .presupuesto import Presupuesto, PresupuestoCreate, PresupuestoRead, PresupuestoReadWithRelations, PresupuestoBase
 from .presupuesto_linea import PresupuestoLinea, PresupuestoLineaCreate, PresupuestoLineaRead, PresupuestoLineaBase
+from .audit import AuditLog
 
 # Opcional: Si quieres una variable que contenga todos los modelos base (SQLModel)
 # Esto es útil si usas Alembic para migraciones, aunque no es estrictamente necesario 
