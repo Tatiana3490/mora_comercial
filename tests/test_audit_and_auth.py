@@ -1,5 +1,9 @@
 import os
 import tempfile
+
+# Set testing mode before importing the app
+os.environ["TESTING"] = "1"
+
 from fastapi.testclient import TestClient
 from sqlmodel import create_engine, SQLModel, Session, select
 

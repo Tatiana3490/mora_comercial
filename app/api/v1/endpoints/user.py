@@ -6,6 +6,7 @@ from app.crud import audit_crud
 from app.models.user import UserCreate, UserRead, UserUpdate, ROL_USUARIO
 from app.db.session import get_session
 from app.core.security import get_current_user
+from app.core.rate_limiting import rate_limit, RATE_LIMITS
 
 # SIN prefix aquí (porque lo ponemos en api_router.include_router)
 router = APIRouter(tags=["Usuarios"])
@@ -19,6 +20,7 @@ def read_users(*, session: Session = Depends(get_session), current_user=Depends(
 
 
 @router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED, summary="Crear usuario")
+@rate_limit(RATE_LIMITS["create_user"])
 def create_user_api(
     *,
     session: Session = Depends(get_session),
@@ -28,6 +30,8 @@ def create_user_api(
     """
     Crea un nuevo usuario (Comercial o Admin).
     Solo usuarios con rol ADMIN pueden crear usuarios.
+    
+    Rate limit: 10 creaciones por hora por IP.
     """
     # Autorizacion: solo ADMIN
     if getattr(current_user, "rol", None) != "ADMIN":
@@ -123,8 +127,13 @@ def update_user(*, session: Session = Depends(get_session), current_user=Depends
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Eliminar usuario")
+@rate_limit(RATE_LIMITS["delete_user"])
 def delete_user(*, session: Session = Depends(get_session), current_user=Depends(get_current_user), user_id: int):
-    """Eliminar un usuario por su ID. Solo ADMIN puede eliminar usuarios."""
+    """
+    Eliminar un usuario por su ID. Solo ADMIN puede eliminar usuarios.
+    
+    Rate limit: 5 eliminaciones por hora por IP.
+    """
     # Autorizacion
     if getattr(current_user, "rol", None) != "ADMIN":
         raise HTTPException(

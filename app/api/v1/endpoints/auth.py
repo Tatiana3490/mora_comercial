@@ -12,6 +12,7 @@ from app.core.security import (
     get_current_user,
 )
 from app.core.config import settings
+from app.core.rate_limiting import rate_limit, RATE_LIMITS
 from app.models.user import UserRead
 
 router = APIRouter(tags=["Autenticación"])
@@ -28,6 +29,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 @router.post("/login", response_model=Token, summary="Login")
+@rate_limit(RATE_LIMITS["login"])
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
@@ -35,6 +37,8 @@ def login(
     """
     Login con email y contraseña.
     Devuelve un access token válido por ACCESS_TOKEN_EXPIRE_MINUTES (default: 60 min).
+    
+    Rate limit: 5 intentos por minuto por IP.
     """
     # Buscar usuario por email (username en OAuth2)
     user = user_crud.get_user_by_email(session, email=form_data.username)
@@ -60,6 +64,7 @@ def login(
 
 
 @router.post("/refresh-token", response_model=Token, summary="Refrescar token")
+@rate_limit(RATE_LIMITS["refresh"])
 def refresh_token(
     current_user=Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -67,6 +72,8 @@ def refresh_token(
     """
     Refrescar el access token usando el token actual.
     El usuario debe estar autenticado con un token válido.
+    
+    Rate limit: 10 intentos por minuto por IP.
     """
     # Verificar que el usuario existe
     user = user_crud.get_user_by_email(session, email=current_user.email)

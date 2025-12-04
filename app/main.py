@@ -3,11 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.config import settings
+from app.core.rate_limiting import setup_rate_limiting
 from app.db.session import create_db_and_tables
 from app.api.v1.api import api_router
+import os
 
 # Crear la aplicación
 app = FastAPI(title=settings.APP_NAME)
+
+# Configurar rate limiting (skip if running tests)
+if not os.getenv("TESTING"):
+    setup_rate_limiting(app)
 
 # Configurar CORS para permitir peticiones desde el frontend
 app.add_middleware(
