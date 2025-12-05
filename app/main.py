@@ -4,9 +4,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.config import settings
 from app.core.rate_limiting import setup_rate_limiting
-from app.db.session import create_db_and_tables
+from app.db.session import create_db_and_tables, engine
 from app.api.v1.api import api_router
 import os
+from sqlmodel import Session
 
 # Crear la aplicación
 app = FastAPI(title=settings.APP_NAME)
@@ -27,7 +28,39 @@ app.add_middleware(
 # Evento de arranque
 @app.on_event("startup")
 def on_startup():
+    """
+    Crear tablas de la BD e inicializar usuario admin (si no existe).
+    """
     create_db_and_tables()
+    
+    # Inicializar usuario admin automáticamente
+    _init_admin_user()
+
+
+def _init_admin_user():
+    """
+    Crear usuario administrador por defecto si no existe.
+    Las credenciales se definen en app/core/config.py
+    """
+    from app.crud import user_crud
+    from app.models.user import UserCreate
+    
+    try:
+        with Session(engine) as session:
+            # Verificar si el usuario admin ya existe
+            admin = user_crud.get_user_by_email(session, settings.ADMIN_EMAIL)
+            if not admin:
+                # Crear usuario admin
+                admin_in = UserCreate(
+                    nombre="Administrador",
+                    email=settings.ADMIN_EMAIL,
+                    password=settings.ADMIN_PASSWORD,
+                    rol="ADMIN"
+                )
+                admin = user_crud.create_user(session=session, user_in=admin_in)
+    except Exception as e:
+        # No fallar si hay error al crear admin (puede ser en test, permisos, etc.)
+        pass
 
 # Incluir el router de la API
 app.include_router(api_router, prefix="/api")

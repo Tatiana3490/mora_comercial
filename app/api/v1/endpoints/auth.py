@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 from datetime import timedelta
@@ -31,6 +31,7 @@ class RefreshTokenRequest(BaseModel):
 @router.post("/login", response_model=Token, summary="Login")
 @rate_limit(RATE_LIMITS["login"])
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
 ):
@@ -66,6 +67,7 @@ def login(
 @router.post("/refresh-token", response_model=Token, summary="Refrescar token")
 @rate_limit(RATE_LIMITS["refresh"])
 def refresh_token(
+    request: Request,
     current_user=Depends(get_current_user),
     session: Session = Depends(get_session),
 ):

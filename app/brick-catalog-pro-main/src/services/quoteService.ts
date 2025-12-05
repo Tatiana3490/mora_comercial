@@ -1,6 +1,8 @@
 // Service for quote (presupuesto) API operations
 
-const API_URL = '/api/v1';
+import { getApiUrl } from '@/config/apiConfig';
+
+const API_URL = getApiUrl('/presupuestos');
 
 export interface PresupuestoLinea {
     id_linea?: number;
@@ -88,7 +90,7 @@ export const quoteService = {
      * Get all quotes (presupuestos)
      */
     async getQuotes(skip = 0, limit = 100): Promise<Presupuesto[]> {
-        const response = await fetch(`${API_URL}/presupuestos/?skip=${skip}&limit=${limit}`);
+        const response = await fetch(`${API_URL}/?skip=${skip}&limit=${limit}`);
         if (!response.ok) {
             throw new Error('Error fetching quotes');
         }
@@ -99,7 +101,7 @@ export const quoteService = {
      * Get a single quote by ID
      */
     async getQuoteById(id: number): Promise<Presupuesto> {
-        const response = await fetch(`${API_URL}/presupuestos/${id}`);
+        const response = await fetch(`${API_URL}/${id}`);
         if (!response.ok) {
             throw new Error(`Error fetching quote ${id}`);
         }
@@ -110,7 +112,7 @@ export const quoteService = {
      * Get all quotes for a specific client
      */
     async getQuotesByClient(clientId: number): Promise<Presupuesto[]> {
-        const response = await fetch(`${API_URL}/presupuestos/cliente/${clientId}`);
+        const response = await fetch(`${API_URL}/cliente/${clientId}`);
         if (!response.ok) {
             throw new Error(`Error fetching quotes for client ${clientId}`);
         }
@@ -121,7 +123,7 @@ export const quoteService = {
      * Create a new quote with lines
      */
     async createQuote(data: PresupuestoCreate): Promise<Presupuesto> {
-        const response = await fetch(`${API_URL}/presupuestos/`, {
+        const response = await fetch(`${API_URL}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -139,7 +141,7 @@ export const quoteService = {
      * Update an existing quote (header only)
      */
     async updateQuote(id: number, data: PresupuestoUpdate): Promise<Presupuesto> {
-        const response = await fetch(`${API_URL}/presupuestos/${id}`, {
+        const response = await fetch(`${API_URL}/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -157,7 +159,7 @@ export const quoteService = {
      * Delete a quote
      */
     async deleteQuote(id: number): Promise<void> {
-        const response = await fetch(`${API_URL}/presupuestos/${id}`, {
+        const response = await fetch(`${API_URL}/${id}`, {
             method: 'DELETE',
         });
         if (!response.ok) {

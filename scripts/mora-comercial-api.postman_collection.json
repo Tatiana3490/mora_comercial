@@ -1,0 +1,304 @@
+{
+  "info": {
+    "name": "Mora Comercial API",
+    "description": "Colección de endpoints para la API de Mora Comercial (autenticación, usuarios, auditoría)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "mora_comercial_2025"
+  },
+  "item": [
+    {
+      "name": "Autenticación",
+      "description": "Endpoints de autenticación y tokens",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "username",
+                  "value": "admin@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "AdminPass123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Iniciar sesión con email y contraseña.\n\nRespuesta:\n- access_token: JWT token para usar en requests autenticados\n- token_type: 'bearer'\n- user: información del usuario autenticado"
+          },
+          "response": []
+        },
+        {
+          "name": "Refrescar Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh-token"]
+            },
+            "description": "Refrescar el access token usando el token actual.\n\nRequiere: Authorization: Bearer <token>\n\nRespuesta: nuevo access_token con la misma duración"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "description": "CRUD de usuarios",
+      "item": [
+        {
+          "name": "Obtener Perfil (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios/me",
+              "host": ["{{base_url}}"],
+              "path": ["usuarios", "me"]
+            },
+            "description": "Obtener el perfil del usuario autenticado.\n\nRequiere autenticación."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Usuarios",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios/",
+              "host": ["{{base_url}}"],
+              "path": ["usuarios", ""]
+            },
+            "description": "Listar todos los usuarios activos.\n\nRequiere autenticación."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Usuario por ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios/1",
+              "host": ["{{base_url}}"],
+              "path": ["usuarios", "1"]
+            },
+            "description": "Obtener un usuario específico por su ID.\n\nReemplaza '1' con el ID del usuario deseado."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear Usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Nuevo Comercial\",\n  \"email\": \"comercial@example.com\",\n  \"password\": \"ComercialPass123\",\n  \"rol\": \"COMERCIAL\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/usuarios/",
+              "host": ["{{base_url}}"],
+              "path": ["usuarios", ""]
+            },
+            "description": "Crear un nuevo usuario.\n\n⚠️ SOLO ADMIN puede crear usuarios.\n\nRoles permitidos: ADMIN, COMERCIAL\n\nGenera un registro de auditoría (create_user)."
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Nombre Actualizado\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/usuarios/1",
+              "host": ["{{base_url}}"],
+              "path": ["usuarios", "1"]
+            },
+            "description": "Actualizar los datos de un usuario.\n\nReemplaza '1' con el ID del usuario.\n\nPuede actualizarse a sí mismo o un ADMIN puede actualizar a otros.\n\nGenera un registro de auditoría (update_user)."
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar Usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/usuarios/2",
+              "host": ["{{base_url}}"],
+              "path": ["usuarios", "2"]
+            },
+            "description": "Eliminar un usuario.\n\n⚠️ SOLO ADMIN puede eliminar usuarios.\n\nReemplaza '2' con el ID del usuario a eliminar.\n\nGenera un registro de auditoría (delete_user)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auditoría",
+      "description": "Endpoints de auditoría (ADMIN only)",
+      "item": [
+        {
+          "name": "Listar Auditoría",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audits/?limit=20&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["audits", ""],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "actor_email",
+                  "value": "admin@example.com",
+                  "disabled": true
+                },
+                {
+                  "key": "target_email",
+                  "value": "comercial@example.com",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "create_user",
+                  "disabled": true
+                },
+                {
+                  "key": "date_from",
+                  "value": "2025-01-01",
+                  "disabled": true
+                },
+                {
+                  "key": "date_to",
+                  "value": "2025-12-31",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Listar registros de auditoría con filtros opcionales.\n\n⚠️ SOLO ADMIN puede ver auditoría.\n\nFiltros opcionales:\n- actor_email: email del usuario que realizó la acción\n- target_email: email del usuario afectado\n- action: tipo de acción (create_user, update_user, delete_user)\n- date_from / date_to: rango de fechas (formato YYYY-MM-DD)\n- limit: número de resultados (default 10)\n- offset: número de resultados a saltar (para paginación)"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Registro de Auditoría",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/audits/1",
+              "host": ["{{base_url}}"],
+              "path": ["audits", "1"]
+            },
+            "description": "Obtener un registro específico de auditoría.\n\n⚠️ SOLO ADMIN puede ver auditoría.\n\nReemplaza '1' con el ID del registro de auditoría."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

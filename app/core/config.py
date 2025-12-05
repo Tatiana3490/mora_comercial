@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # En proyectos grandes, esta variable se usaría para crear el motor.
     DATABASE_FILE: str = "mora_comercial.db"
     
+    # --- Configuración de Usuario Admin Automático ---
+    # Credenciales para el usuario administrador inicial
+    # Se crea automáticamente en el startup si no existe
+    ADMIN_EMAIL: str = "admin@example.com"
+    ADMIN_PASSWORD: str = "AdminPass123"
+    
     # Configuración de Pydantic: Carga variables de entorno desde un archivo .env
     model_config = SettingsConfigDict(
         env_file='.env',

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import Session
 
 from app.crud import user_crud
@@ -22,6 +22,7 @@ def read_users(*, session: Session = Depends(get_session), current_user=Depends(
 @router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED, summary="Crear usuario")
 @rate_limit(RATE_LIMITS["create_user"])
 def create_user_api(
+    request: Request,
     *,
     session: Session = Depends(get_session),
     current_user = Depends(get_current_user),
@@ -128,7 +129,7 @@ def update_user(*, session: Session = Depends(get_session), current_user=Depends
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Eliminar usuario")
 @rate_limit(RATE_LIMITS["delete_user"])
-def delete_user(*, session: Session = Depends(get_session), current_user=Depends(get_current_user), user_id: int):
+def delete_user(request: Request, *, session: Session = Depends(get_session), current_user=Depends(get_current_user), user_id: int):
     """
     Eliminar un usuario por su ID. Solo ADMIN puede eliminar usuarios.
     

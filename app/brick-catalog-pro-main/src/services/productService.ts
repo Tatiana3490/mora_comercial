@@ -1,10 +1,11 @@
 import { Product } from "@/data/products";
+import { getApiUrl } from "@/config/apiConfig";
 
-const API_URL = "/api/v1";
+const API_BASE_URL = getApiUrl("/articulos");
 
 export const productService = {
     async getProducts(): Promise<Product[]> {
-        const response = await fetch(`${API_URL}/articulos/`);
+        const response = await fetch(`${API_BASE_URL}/`);
         if (!response.ok) {
             throw new Error("Network response was not ok");
         }
@@ -21,7 +22,7 @@ export const productService = {
     },
 
     async getProductById(id: string): Promise<Product> {
-        const response = await fetch(`${API_URL}/articulos/${id}`);
+        const response = await fetch(`${API_BASE_URL}/${id}`);
         if (!response.ok) {
             throw new Error("Network response was not ok");
         }

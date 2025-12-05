@@ -1,6 +1,8 @@
 // Service for client API operations
 
-const API_URL = '/api/v1';
+import { getApiUrl } from '@/config/apiConfig';
+
+const API_URL = getApiUrl('/clientes');
 
 export interface Client {
     id_cliente: number;
@@ -35,7 +37,7 @@ export const clientService = {
      * Get all clients
      */
     async getClients(): Promise<Client[]> {
-        const response = await fetch(`${API_URL}/clientes/`);
+        const response = await fetch(`${API_URL}/`);
         if (!response.ok) {
             throw new Error('Error fetching clients');
         }
@@ -46,7 +48,7 @@ export const clientService = {
      * Get a single client by ID
      */
     async getClientById(id: number): Promise<Client> {
-        const response = await fetch(`${API_URL}/clientes/${id}`);
+        const response = await fetch(`${API_URL}/${id}`);
         if (!response.ok) {
             throw new Error(`Error fetching client ${id}`);
         }
@@ -57,7 +59,7 @@ export const clientService = {
      * Create a new client
      */
     async createClient(data: ClientCreate): Promise<Client> {
-        const response = await fetch(`${API_URL}/clientes/`, {
+        const response = await fetch(`${API_URL}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -75,7 +77,7 @@ export const clientService = {
      * Update an existing client
      */
     async updateClient(id: number, data: ClientUpdate): Promise<Client> {
-        const response = await fetch(`${API_URL}/clientes/${id}`, {
+        const response = await fetch(`${API_URL}/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -93,7 +95,7 @@ export const clientService = {
      * Delete a client
      */
     async deleteClient(id: number): Promise<void> {
-        const response = await fetch(`${API_URL}/clientes/${id}`, {
+        const response = await fetch(`${API_URL}/${id}`, {
             method: 'DELETE',
         });
         if (!response.ok) {
