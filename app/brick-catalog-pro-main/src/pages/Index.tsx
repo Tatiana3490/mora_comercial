@@ -18,6 +18,19 @@ import {
   FileText,
   TrendingUp,
   Package,
+// UI components
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+
+/* =========================
   Trash2,
   Menu,
   X,
@@ -235,6 +248,10 @@ const Index = () => {
   const [isLoadingFeatured, setIsLoadingFeatured] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [showClientModal, setShowClientModal] = useState(false);
+  // Modal para confirmar precio al añadir producto
+  const [productToConfirm, setProductToConfirm] = useState<any | null>(null);
+  const [confirmPrice, setConfirmPrice] = useState<number>(0);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -332,14 +349,24 @@ const Index = () => {
 
   /* ===== Carrito / Presupuesto ===== */
 
+  // Al añadir producto desde catálogo, abrimos modal para confirmar precio
   const addToCart = (product: any) => {
+    setProductToConfirm(product);
+    setConfirmPrice(product.price ?? 0);
+    setIsConfirmOpen(true);
+  };
+
+  const confirmAddToCart = (product: any, price: number) => {
     setCart(prev => {
       const existing = prev.find(p => p.id === product.id);
       if (existing) {
-        return prev.map(p => (p.id === product.id ? { ...p, quantity: p.quantity + 100 } : p));
+        return prev.map(p => (p.id === product.id ? { ...p, quantity: p.quantity + 100, price } : p));
       }
-      return [...prev, { ...product, quantity: 100 }];
+      return [...prev, { ...product, quantity: 100, price }];
     });
+    // Cerrar modal
+    setIsConfirmOpen(false);
+    setProductToConfirm(null);
   };
 
   const updateCartQuantity = (id: any, quantity: any) => {
@@ -913,6 +940,46 @@ const Index = () => {
             {activeTab === 'presupuestos' && <QuotesView />}
             {activeTab === 'clientes' && <ClientsView />}
           </div>
+
+          {/* Dialog: Confirmar precio al añadir producto desde catálogo */}
+          <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Confirmar precio</DialogTitle>
+                <DialogDescription>Revisa el precio antes de añadir el producto al presupuesto.</DialogDescription>
+              </DialogHeader>
+              <div className="mt-4 flex gap-4">
+                {productToConfirm?.image ? (
+                  <img src={productToConfirm.image} alt={productToConfirm.name} className="w-28 h-28 object-cover rounded-md" />
+                ) : (
+                  <div className="w-28 h-28 rounded-md bg-slate-100 flex items-center justify-center text-slate-500">No image</div>
+                )}
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg">{productToConfirm?.name}</h3>
+                  <p className="text-sm text-slate-600 my-2">{productToConfirm?.description}</p>
+
+                  <label className="text-xs text-slate-500">Precio por unidad (€)</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={confirmPrice}
+                      onChange={(e) => setConfirmPrice(parseFloat(e.target.value || '0'))}
+                      className="w-32 text-right border border-slate-300 rounded-md py-1 px-2 text-sm focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-6">
+                <div className="flex gap-2 ml-auto">
+                  <Button variant="ghost" onClick={() => { setIsConfirmOpen(false); setProductToConfirm(null); }}>Cancelar</Button>
+                  <Button onClick={() => confirmAddToCart(productToConfirm, confirmPrice)}>Confirmar y añadir</Button>
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
     </div>
