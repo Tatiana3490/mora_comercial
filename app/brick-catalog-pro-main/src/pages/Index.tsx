@@ -18,6 +18,17 @@ import {
   FileText,
   TrendingUp,
   Package,
+  Trash2,
+  Menu,
+  X,
+  Loader2,
+  Box,
+  Mail,
+  Phone,
+  MapPin,
+  ClipboardList,
+} from 'lucide-react';
+
 // UI components
 import {
   Dialog,
@@ -29,18 +40,6 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-
-/* =========================
-  Trash2,
-  Menu,
-  X,
-  Loader2,
-  Box,
-  Mail,
-  Phone,
-  MapPin,
-  ClipboardList
-} from 'lucide-react';
 
 /* =========================
    CONSTANTES Y HELPERS
