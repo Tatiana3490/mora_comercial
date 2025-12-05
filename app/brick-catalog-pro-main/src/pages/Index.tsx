@@ -103,31 +103,42 @@ const StatCard = ({ title, value, trend, icon: Icon, color }: any) => (
 
 const ProductCard = ({ product, onAdd }: any) => (
   <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-smooth group flex flex-col h-full">
-    {/* Parte superior: textura / foto simulada */}
+    {/* Parte superior: imagen o textura */}
     <div className="h-40 relative overflow-hidden bg-slate-50">
-      {/* Fondo: color o gradiente */}
-      <div
-        className="absolute inset-0 transition-transform duration-700 group-hover:scale-110"
-        style={{
-          backgroundColor: product.color?.includes('gradient') ? undefined : product.color || '#f4f4f5',
-          backgroundImage: product.color?.includes('gradient') ? product.color : undefined
-        }}
-      />
-      {/* Texturas sencillas para imitar el diseño */}
-      {product.texture === 'dots' && (
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '10px 10px' }}
+      {/* Si hay imagen, mostrarla */}
+      {product.image ? (
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
-      )}
-      {product.texture === 'lines' && (
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(135deg, rgba(15,23,42,0.10) 0, rgba(15,23,42,0.10) 1px, transparent 0, transparent 8px)'
-          }}
-        />
+      ) : (
+        <>
+          {/* Fondo: color o gradiente (fallback si no hay imagen) */}
+          <div
+            className="absolute inset-0 transition-transform duration-700 group-hover:scale-110"
+            style={{
+              backgroundColor: product.color?.includes('gradient') ? undefined : product.color || '#f4f4f5',
+              backgroundImage: product.color?.includes('gradient') ? product.color : undefined
+            }}
+          />
+          {/* Texturas sencillas para imitar el diseño */}
+          {product.texture === 'dots' && (
+            <div
+              className="absolute inset-0 opacity-20"
+              style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '10px 10px' }}
+            />
+          )}
+          {product.texture === 'lines' && (
+            <div
+              className="absolute inset-0 opacity-15"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(135deg, rgba(15,23,42,0.10) 0, rgba(15,23,42,0.10) 1px, transparent 0, transparent 8px)'
+              }}
+            />
+          )}
+        </>
       )}
 
       <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-[11px] font-semibold text-slate-700 shadow-sm">
@@ -254,7 +265,10 @@ const Index = () => {
     stock: p.stock,
     color: p.color || '#f4f4f5',
     texture: 'dots',
-    description: p.descripcion
+    description: p.descripcion,
+    image: p.imagenes && p.imagenes.length > 0 ? p.imagenes[0] : null,
+    imagenes: p.imagenes || [],
+    rating: p.rating || 4.5
   }));
 
   // Mapeo de clientes de backend -> UI
@@ -341,6 +355,11 @@ const Index = () => {
   const removeFromCart = (id: any) => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
+
+    const updateCartPrice = (id: any, newPrice: any) => {
+      const price = Math.max(0, parseFloat(newPrice) || 0);
+      setCart(prev => prev.map(p => (p.id === id ? { ...p, price } : p)));
+    };
 
   const cartTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const cartIVA = cartTotal * 0.21;
@@ -670,7 +689,19 @@ const Index = () => {
                     >
                       <td className="p-3 font-semibold text-slate-900">{item.name}</td>
                       <td className="p-3 text-slate-600">{item.category}</td>
-                      <td className="p-3 text-right text-slate-700">€{item.price.toFixed(2)}</td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-600">€</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.price.toFixed(2)}
+                              onChange={e => updateCartPrice(item.id, e.target.value)}
+                              className="w-24 text-right border border-slate-300 rounded-md py-1 px-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                            />
+                          </div>
+                        </td>
                       <td className="p-3 text-center">
                         <input
                           type="number"
