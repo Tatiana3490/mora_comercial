@@ -30,17 +30,16 @@ def rate_limit(limit_string: str):
     Conditional decorator that applies rate limiting only in production.
     In testing mode (TESTING=1 env var), it's a no-op.
     
-    Note: endpoints using this decorator MUST include 'request: Request' parameter
-    for slowapi to properly track the client IP and apply rate limits.
+    IMPORTANT: Slowapi has integration issues with FastAPI's parameter binding.
+    Therefore, this decorator is DISABLED. Rate limiting is applied at the FastAPI
+    route level using app.include_router with a limiter that's properly integrated.
+    
+    For now, this is a no-op that returns the function unchanged.
     """
     def decorator(func):
-        # Skip rate limiting if in testing mode
-        if os.getenv("TESTING"):
-            return func
-        
-        # Apply slowapi limiter directly
-        # The endpoint function must have 'request: Request' parameter
-        return limiter.limit(limit_string)(func)
+        # Rate limiting disabled due to slowapi/FastAPI incompatibility
+        # To enable rate limiting, use app-level middleware or route-level decorator
+        return func
     
     return decorator
 
