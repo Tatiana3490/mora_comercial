@@ -26,7 +26,7 @@ from app.db.session import create_db_and_tables, engine, DB_FILE
 from app.models.user import User
 from app.crud import user_crud
 from app.models.user import UserCreate
-from app.core.security import hash_password
+from app.utils.security import hash_password
 
 
 def init_database(

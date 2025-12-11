@@ -26,7 +26,7 @@ def get_users(session: Session, skip: int = 0, limit: int = 100) -> List[User]:
 
 def create_user(session: Session, user_in: UserCreate) -> User:
     """Crea un usuario nuevo con contraseña hasheada."""
-    from app.core.security import hash_password
+    from app.utils.security import hash_password
     
     user = User(
         nombre=user_in.nombre,

@@ -1,27 +1,32 @@
-# app/models/presupuesto.py
-
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional, List
 from datetime import date
-
 from sqlmodel import SQLModel, Field, Relationship
 
+# Importamos lo necesario para las líneas (evitando ciclos si es posible)
+# Nota: Si esto da error de importación circular, habría que moverlo,
+# pero por ahora asumimos que está bien estructurado en carpetas.
 from .presupuesto_linea import (
     PresupuestoLinea,
     PresupuestoLineaCreate,
     PresupuestoLineaRead,
 )
 
-# Posibles estados del presupuesto (referencia)
+if TYPE_CHECKING:
+    from app.models.client import Client
+
+# Posibles estados del presupuesto
 ESTADO_PRESUPUESTO = ["BORRADOR", "ENVIADO_ADMIN", "APROBADO", "DENEGADO"]
 
 
+# 1. CLASE BASE (Solo datos comunes, NO es tabla)
 class PresupuestoBase(SQLModel):
     """Campos comunes de la cabecera de presupuesto."""
-
     numero_presupuesto: Optional[str] = None
     fecha_presupuesto: date = Field(default_factory=date.today)
     lugar_suministro: Optional[str] = None
     persona_contacto: Optional[str] = None
+    
+    total: float = Field(default=0.0)
 
     # Estado y revisión
     estado: str = Field(default="BORRADOR")
@@ -37,25 +42,37 @@ class PresupuestoBase(SQLModel):
     condiciones_impuestos: Optional[str] = None
     observaciones: Optional[str] = None
 
-    # Claves foráneas (solo IDs, sin relaciones ORM complejas)
+    # --- CLAVES FORÁNEAS (Foreign Keys) ---
+    # ⚠️ IMPORTANTE: Asegúrate de que los nombres de tabla.campo coincidan con tus otros modelos
+    
+    # FK a Client (usamos 'client.id_cliente' porque así lo definimos en Client)
     id_cliente: int = Field(foreign_key="client.id_cliente")
+    
+    # FK a User (asumiendo que en User la PK es 'id_usuario')
     id_comercial_creador: int = Field(foreign_key="user.id_usuario")
+    
     id_admin_revisor: Optional[int] = Field(
         default=None,
         foreign_key="user.id_usuario",
     )
 
 
+# 2. ENTIDAD DE BD (Hereda de Base, añade ID y Relaciones)
 class Presupuesto(PresupuestoBase, table=True):
     """Entidad de BD: cabecera de presupuesto."""
+    # Unificamos el ID a "id" para evitar líos con Pydantic
+    id: Optional[int] = Field(default=None, primary_key=True)
 
-    id_presupuesto: Optional[int] = Field(default=None, primary_key=True)
+    # --- RELACIONES ---
+    
+    # 1. Relación con Cliente
+    # back_populates debe coincidir con el nombre de la variable en app/models/client.py
+    cliente: Optional["Client"] = Relationship(back_populates="presupuestos")
 
-    # 🔗 Relación con líneas: borrado en cascada
-    lineas: List["PresupuestoLinea"] = Relationship(
-        back_populates="presupuesto",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
-    )
+    # 2. Relación con Líneas
+    # Esto faltaba y es necesario para 'PresupuestoCompletoRead'
+    # Asumimos que en PresupuestoLinea existe 'presupuesto: Relationship(...)'
+    lineas: List["PresupuestoLinea"] = Relationship(back_populates="presupuesto", sa_relationship_kwargs={"cascade": "all, delete"})
 
 
 # =====================
@@ -63,46 +80,25 @@ class Presupuesto(PresupuestoBase, table=True):
 # =====================
 
 class PresupuestoCreate(PresupuestoBase):
-    """Esquema para crear solo la cabecera del presupuesto."""
-    pass
+    """Al crear, id_cliente ya viene en la Base, pero lo explicito aquí si quiero validación extra."""
+    pass 
 
 
 class PresupuestoRead(PresupuestoBase):
-    """Esquema básico de lectura de cabecera."""
-    id_presupuesto: int
-
+    id: int    
+    # id_cliente ya está en Base, no hace falta repetirlo, pero no daña.
 
 class PresupuestoReadWithRelations(PresupuestoRead):
-    """
-    Esquema de lectura con las líneas incluidas.
-    Útil para endpoints que devuelven el presupuesto completo
-    pero sin campos de totales calculados.
-    """
-
-    lineas: List[PresupuestoLineaRead] = []
-
+    # Aquí cargamos el objeto Cliente completo
+    cliente: Optional["Client"] = None
 
 class PresupuestoCompletoCreate(PresupuestoCreate):
-    """
-    Esquema para crear presupuesto + líneas en una sola llamada.
-
-    Estructura esperada en el body:
-    {
-      ...campos de cabecera...,
-      "lineas": [ {...}, {...} ]
-    }
-    """
-
+    # Para crear presupuesto + líneas de golpe
     lineas: List[PresupuestoLineaCreate]
 
 
 class PresupuestoUpdate(SQLModel):
-    """
-    Esquema para actualizar la cabecera de un presupuesto.
-
-    Todos los campos son opcionales para permitir actualizaciones parciales.
-    """
-
+    """Todos los campos opcionales para PATCH."""
     numero_presupuesto: Optional[str] = None
     fecha_presupuesto: Optional[date] = None
     lugar_suministro: Optional[str] = None
@@ -126,18 +122,13 @@ class PresupuestoUpdate(SQLModel):
 
 
 class PresupuestoCompletoRead(PresupuestoRead):
-    """
-    Esquema de lectura completo:
-    - Cabecera
-    - Líneas
-    - Totales calculados (no almacenados en BD)
-    """
+    """Para leer el presupuesto con todas sus líneas."""
+    lineas: List[PresupuestoLineaRead] = []
 
-    lineas: List[PresupuestoLineaRead]
-
-    total_bruto: float
-    total_descuento: float
-    total_neto: float
+    # Campos calculados (no están en BD, se calculan en Python)
+    total_bruto: float = 0.0
+    total_descuento: float = 0.0
+    total_neto: float = 0.0
 
 
 __all__ = [

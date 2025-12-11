@@ -4,10 +4,6 @@ import os
 from sqlmodel import create_engine, SQLModel, Session
 
 # 1. Definición de la ruta a la base de datos
-# Como session.py está en app/db, necesitamos ir dos niveles hacia atrás (../../)
-# para encontrar mora_comercial.db en la raíz del proyecto.
-# Usamos un path absoluto para evitar problemas de rutas relativas al ejecutar la app.
-
 # Obtiene la ruta al directorio actual (app/db)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Define la ruta absoluta al archivo de la base de datos

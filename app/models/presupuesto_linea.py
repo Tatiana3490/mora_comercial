@@ -1,49 +1,48 @@
-# app/models/presupuesto_linea.py
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Relationship
 
+if TYPE_CHECKING:
+    from app.models.presupuesto import Presupuesto
 
+# 1. BASE: Campos comunes
 class PresupuestoLineaBase(SQLModel):
-    # FKs
-    id_presupuesto: int = Field(foreign_key="presupuesto.id_presupuesto")
-    articulo_id: str = Field(foreign_key="articulo.id")
-
-    # Datos de línea
-    cantidad_m2: float = Field(default=0.0)
-    precio_m2: float = Field(default=0.0)
-    descuento_pct: float = Field(default=0.0)
-
-    # Snapshot de la descripción del artículo en el momento del presupuesto
-    descripcion_articulo: Optional[str] = None
-
-
-class PresupuestoLinea(PresupuestoLineaBase, table=True):
-    id_linea: Optional[int] = Field(default=None, primary_key=True)
-
-    # 🔗 Relaciones
-    presupuesto: "Presupuesto" = Relationship(
-        back_populates="lineas"
-    )
-    articulo: "Articulo" = Relationship(
-        back_populates="lineas_presupuesto"
-    )
+    descripcion: str
+    cantidad: float = Field(default=1.0)
+    precio_unitario: float = Field(default=0.0)
+    descuento: float = Field(default=0.0)
     
-    articulo: Optional["Articulo"] = Relationship()
+    # Opcional: totales calculados (a veces conviene guardarlos, a veces no)
+    total_linea: float = Field(default=0.0)
 
+# 2. TABLA: Definición de BD
+class PresupuestoLinea(PresupuestoLineaBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # --- CORRECCIÓN AQUÍ ---
+    # Antes tenías "presupuesto.id_presupuesto", ahora debe ser "presupuesto.id"
+    id_presupuesto: int = Field(foreign_key="presupuesto.id")
 
+    # Relación inversa (necesaria para que funcione el cascade delete y la lectura completa)
+    presupuesto: Optional["Presupuesto"] = Relationship(back_populates="lineas")
+
+# 3. ESQUEMAS
 class PresupuestoLineaCreate(PresupuestoLineaBase):
-    """Esquema para crear líneas de presupuesto."""
     pass
 
-
 class PresupuestoLineaRead(PresupuestoLineaBase):
-    """Esquema para leer líneas de presupuesto."""
-    id_linea: int
+    id: int
+    id_presupuesto: int
 
+class PresupuestoLineaUpdate(SQLModel):
+    descripcion: Optional[str] = None
+    cantidad: Optional[float] = None
+    precio_unitario: Optional[float] = None
+    descuento: Optional[float] = None
 
 __all__ = [
     "PresupuestoLineaBase",
     "PresupuestoLinea",
     "PresupuestoLineaCreate",
     "PresupuestoLineaRead",
+    "PresupuestoLineaUpdate",
 ]

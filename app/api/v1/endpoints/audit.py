@@ -1,23 +1,21 @@
+from typing import Optional, List # Importamos List por compatibilidad
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session
-from datetime import datetime
-from typing import Optional
 
-from app.crud import audit_crud
 from app.db.session import get_session
-from app.core.security import get_current_user
-from app.models.audit import AuditLog
+from app.utils.security import get_current_user
+from app.crud import audit_crud
+
+# IMPORTAMOS LOS MODELOS DESDE SU ORIGEN (Sin redefinirlos aquí)
+from app.models.audit import AuditLog, AuditLogRead
 from app.models.user import UserRead
 
 router = APIRouter(tags=["Auditoría"])
 
+# --- YA NO DEFINIMOS LA CLASE AQUÍ, LA IMPORTAMOS ARRIBA ---
 
-class AuditLogRead(AuditLog):
-    """Schema de lectura para audit logs."""
-    pass
-
-
-@router.get("/", response_model=list[AuditLogRead], summary="Listar registros de auditoría")
+@router.get("/", response_model=List[AuditLogRead], summary="Listar registros de auditoría")
 def list_audit_logs(
     *,
     session: Session = Depends(get_session),
@@ -32,16 +30,10 @@ def list_audit_logs(
 ):
     """
     Lista registros de auditoría (solo para ADMIN).
-    
-    Filtros disponibles:
-    - actor_email: Email del usuario que realizó la acción
-    - target_email: Email del usuario afectado por la acción
-    - action: Tipo de acción (create_user, update_user, delete_user)
-    - date_from: Fecha desde (ISO 8601, ej: 2025-12-04T10:00:00)
-    - date_to: Fecha hasta (ISO 8601, ej: 2025-12-04T23:59:59)
     """
-    # Solo ADMIN puede ver audit logs
-    if getattr(current_user, "rol", None) != "ADMIN":
+    # Verificación de Rol Simplificada
+    # Si UserRead tiene el campo 'rol', úsalo directamente.
+    if current_user.rol != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo los administradores pueden acceder a los registros de auditoría"
@@ -70,8 +62,7 @@ def get_audit_log(
     """
     Obtiene un registro de auditoría específico por su ID (solo para ADMIN).
     """
-    # Solo ADMIN puede ver audit logs
-    if getattr(current_user, "rol", None) != "ADMIN":
+    if current_user.rol != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo los administradores pueden acceder a los registros de auditoría"

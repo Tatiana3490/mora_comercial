@@ -10,6 +10,9 @@ ROL_USUARIO = ["COMERCIAL", "ADMIN"]
 class UserBase(SQLModel):
     """Campos comunes del usuario."""
     nombre: str
+    # ### NUEVO CAMPO ###
+    apellidos: str 
+    # -------------------
     email: str = Field(unique=True, index=True)
     rol: str = Field(default="COMERCIAL")
     activo: bool = Field(default=True)
@@ -18,7 +21,6 @@ class UserBase(SQLModel):
 class User(UserBase, table=True):
     """Tabla de usuarios."""
     id_usuario: Optional[int] = Field(default=None, primary_key=True)
-    # Guardaremos solo el hash de la contraseña
     password_hash: str = Field(index=False)
 
 
@@ -42,11 +44,12 @@ class UserReadInternal(UserRead):
 class UserUpdate(SQLModel):
     """
     Esquema para actualizar usuario.
-
-    Todos los campos son opcionales para permitir actualizaciones parciales.
-    Si envías 'password', en el CRUD deberías volver a hashearla.
+    Todos los campos son opcionales.
     """
     nombre: Optional[str] = None
+    # ### NUEVO CAMPO (Opcional para update) ###
+    apellidos: Optional[str] = None
+    # ----------------------------------------
     email: Optional[str] = None
     rol: Optional[str] = None
     activo: Optional[bool] = None

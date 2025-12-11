@@ -12,7 +12,7 @@ from app.db.session import get_session
 from app.crud import user_crud, audit_crud
 from app.models.user import UserCreate
 from app.models.audit import AuditLog
-from app.core.security import create_access_token
+from app.utils.security import create_access_token
 
 # Import all models so SQLModel knows about them
 import app.models
