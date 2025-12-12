@@ -6,6 +6,7 @@ from typing import Optional, List, Dict
 from sqlmodel import SQLModel, Field
 from sqlalchemy import Column, JSON
 from pydantic import field_validator
+# Si no usas settings aquí, lo puedes quitar, pero lo dejo por si acaso
 from app.core.config import settings
 
 
@@ -20,8 +21,15 @@ class ArticuloBase(SQLModel):
     stock: int
     rating: float
     dimensiones: str
+
+    # --- NUEVO CAMPO PARA IMÁGENES LOCALES (STATIC) ---
+    # Guardará la ruta relativa, ej: "mora_materiales/Clinker/foto.jpg"
+    imagen_path: Optional[str] = None 
+
     # Almacenaremos las imágenes como una lista de strings en formato JSON
+    # (Esto te sirve para galerías adicionales si quieres)
     imagenes: List[str] = Field(default=[], sa_column=Column(JSON))
+    
     # Almacenaremos los datos técnicos como un diccionario en formato JSON
     datos_tecnicos: Dict = Field(default={}, sa_column=Column(JSON))
     
@@ -36,8 +44,8 @@ class Articulo(ArticuloBase, table=True):
     """
     Tabla de artículos de catálogo.
     """
+    # Tu ID es un String (ej: "LAD-001"), asegúrate de enviarlo siempre al crear
     id: str = Field(primary_key=True)
-    # id_articulo: Optional[int] = Field(default=None, primary_key=True) # Deprecated
 
 
 class ArticuloCreate(ArticuloBase):
@@ -71,6 +79,10 @@ class ArticuloUpdate(SQLModel):
     stock: Optional[int] = None
     rating: Optional[float] = None
     dimensiones: Optional[str] = None
+    
+    # Añadimos también aquí la opción de actualizar la imagen local
+    imagen_path: Optional[str] = None
+    
     imagenes: Optional[List[str]] = None
     datos_tecnicos: Optional[Dict] = None
     

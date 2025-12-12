@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Trash2, Save, Plus, FileText, User } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -7,206 +8,274 @@ const Quotes = () => {
   const navigate = useNavigate();
   
   // --- ESTADOS ---
-  const [items, setItems] = useState(() => {
-    const savedItems = localStorage.getItem('quoteItems');
-    if (savedItems) return JSON.parse(savedItems);
-    return [{ id: 1, name: 'CLINKER BLANCO', category: 'Clinker', price: 1.15, quantity: 100 }];
-  });
-
+  const [items, setItems] = useState([]);
   const [availableClients, setAvailableClients] = useState([]);
-  const [selectedClientName, setSelectedClientName] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState(''); // Usamos ID para la Base de Datos
+  const [loading, setLoading] = useState(true);
 
-  // --- EFECTOS ---
+  // --- 1. CARGA INICIAL (Clientes y Carrito) ---
   useEffect(() => {
-    const savedClients = localStorage.getItem('clientsData');
-    if (savedClients) {
-      setAvailableClients(JSON.parse(savedClients));
+    // A. Cargar productos que vienen del Catálogo
+    const savedItems = localStorage.getItem('quoteItems');
+    if (savedItems) {
+        setItems(JSON.parse(savedItems));
     }
+
+    // B. Cargar CLIENTES REALES del Backend
+    async function fetchClients() {
+        try {
+            const token = localStorage.getItem('token');
+            // Nota: Ajusta si tu ruta es /v1/clients o /v1/clientes
+            const response = await fetch('http://localhost:8000/v1/clients/', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                setAvailableClients(data); // Guardamos la lista real
+            } else {
+                console.error("Error cargando clientes");
+            }
+        } catch (error) {
+            console.error("Error de conexión:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+    fetchClients();
   }, []);
 
+  // Guardar carrito en local por si refrescas la página
   useEffect(() => {
     localStorage.setItem('quoteItems', JSON.stringify(items));
   }, [items]);
 
   // --- CÁLCULOS ---
-  const baseImponible = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  // Convertimos a números por si acaso vienen como texto
+  const baseImponible = items.reduce((acc, item) => acc + ((parseFloat(item.precio) || 0) * (parseInt(item.cantidad) || 0)), 0);
   const iva = baseImponible * 0.21;
-  const shipping = 50.00; 
-  const total = baseImponible + iva + shipping;
+  const total = baseImponible + iva; 
 
-  // --- FUNCIÓN 1: SOLO GUARDAR EN DASHBOARD (Sin descargar) ---
-  const handleSaveQuote = () => {
-    // 1. Validar
-    if (!selectedClientName) {
-      alert("Por favor, selecciona un cliente antes de guardar.");
+  // --- FUNCIÓN GUARDAR (CONECTADA AL BACKEND) ---
+  const handleSaveQuote = async () => {
+    if (!selectedClientId) {
+      alert("⚠️ Por favor, selecciona un cliente primero.");
       return;
     }
 
-    // 2. Buscar datos del cliente
-    const clientData = availableClients.find(c => c.name === selectedClientName) || { name: selectedClientName };
+    try {
+        const token = localStorage.getItem('token');
+        
+        // 1. Preparamos el JSON tal cual lo quiere Python
+        const budgetData = {
+            id_cliente: parseInt(selectedClientId),
+            // id_comercial_creador: 1, // El backend lo coge automático del token
+            estado: "PENDIENTE",
+            fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Validez 15 días
+            total: total,
+            // Traducimos las líneas para el backend
+            lineas: items.map(item => ({
+                id_articulo: item.id_articulo || item.id, // El ID del producto (ej: "KLK-001")
+                cantidad: parseInt(item.cantidad),
+                precio_unitario: parseFloat(item.precio)
+            }))
+        };
 
-    // 3. Crear el registro para el Dashboard
-    const newQuoteRecord = {
-      id: Date.now(), // ID único
-      clientName: clientData.name,
-      company: clientData.company || 'Particular',
-      date: new Date().toLocaleDateString(), // Fecha de hoy
-      amount: total,
-      status: 'Pendiente' // <--- ESTADO INICIAL PARA EL DASHBOARD
-    };
+        console.log("🚀 Enviando presupuesto al servidor:", budgetData);
 
-    // 4. Guardar en el historial (LocalStorage)
-    const currentHistory = JSON.parse(localStorage.getItem('quotesHistory')) || [];
-    localStorage.setItem('quotesHistory', JSON.stringify([newQuoteRecord, ...currentHistory]));
+        // 2. Petición POST al servidor
+        const response = await fetch('http://localhost:8000/v1/presupuestos/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(budgetData)
+        });
 
-    // 5. Limpiar el presupuesto actual (Opcional, para que al volver esté vacío)
-    // setItems([]); 
-    // localStorage.removeItem('quoteItems');
+        if (response.ok) {
+            alert("✅ ¡Presupuesto guardado con éxito en la Base de Datos!");
+            // Limpiamos el carrito y volvemos al inicio
+            localStorage.removeItem('quoteItems');
+            setItems([]);
+            navigate('/dashboard');
+        } else {
+            const errorData = await response.json();
+            alert("❌ Error al guardar. Revisa la consola.");
+            console.error("Detalle del error:", errorData);
+        }
 
-    // 6. Redirigir al Dashboard
-    alert("Presupuesto guardado correctamente.");
-    navigate('/'); // <--- NOS LLEVA AL INICIO PARA VERLO EN LA TABLA
+    } catch (error) {
+        console.error("Error grave:", error);
+        alert("Error de conexión con el servidor.");
+    }
   };
 
-  // --- FUNCIÓN 2: SOLO DESCARGAR PDF (Opcional) ---
+  // --- GENERAR PDF (Solo visual, sin guardar) ---
   const generatePDFOnly = () => {
-    if (!selectedClientName) {
-      alert("Selecciona un cliente para el PDF.");
-      return;
-    }
-    const clientData = availableClients.find(c => c.name === selectedClientName) || { name: selectedClientName };
+    if (!selectedClientId) return alert("Selecciona cliente.");
+    // Buscamos los datos del cliente seleccionado para pintarlos en el PDF
+    const client = availableClients.find(c => c.id_cliente == selectedClientId) || {};
+    
     const doc = new jsPDF();
-
-    // Diseño del PDF (Mismo que tenías)
     doc.setFontSize(22); doc.setTextColor(234, 88, 12); doc.text("Cerámicas Mora", 14, 20);
-    doc.setFontSize(12); doc.setTextColor(100); doc.text("Presupuesto", 14, 30);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 36);
+    doc.setFontSize(12); doc.setTextColor(100); doc.text(`Presupuesto - ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    doc.setFontSize(14); doc.setTextColor(0); doc.text("Cliente:", 14, 45);
+    doc.setFontSize(10); doc.text(`${client.nombre_completo || 'Cliente'}`, 14, 52);
+    doc.text(`NIF: ${client.nif || '-'}`, 14, 57);
 
-    doc.setFontSize(14); doc.setTextColor(0); doc.text("Cliente:", 14, 50);
-    doc.setFontSize(10); doc.setTextColor(100);
-    doc.text(`Nombre: ${clientData.name}`, 14, 56);
-    doc.text(`Empresa: ${clientData.company || ''}`, 14, 61);
-
-    const tableRows = items.map(item => [item.name, item.category, item.quantity, `€${item.price.toFixed(2)}`, `€${(item.price * item.quantity).toFixed(2)}`]);
-    autoTable(doc, { startY: 80, head: [['Producto', 'Cat.', 'Cant.', 'Precio', 'Total']], body: tableRows, headStyles: { fillColor: [234, 88, 12] } });
+    const rows = items.map(i => [
+        i.nombre, 
+        i.cantidad, 
+        `${parseFloat(i.precio).toFixed(2)}€`, 
+        `${(i.cantidad * i.precio).toFixed(2)}€`
+    ]);
+    
+    autoTable(doc, { 
+        startY: 70, 
+        head: [['Producto', 'Cant.', 'Precio Unit.', 'Total']], 
+        body: rows,
+        headStyles: { fillColor: [234, 88, 12] }
+    });
 
     const finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 80) + 10;
-    doc.text(`Total: €${total.toFixed(2)}`, 140, finalY + 20);
-
-    doc.save(`Borrador_${clientData.name}.pdf`);
+    doc.text(`Total a Pagar: ${total.toFixed(2)} €`, 140, finalY + 10);
+    
+    doc.save(`Presupuesto_${client.nombre_completo || 'cliente'}.pdf`);
   };
 
-  // --- HANDLERS (Igual que antes) ---
-  const handleQuantityChange = (id, value) => {
-    const newQuantity = parseInt(value) || 0; 
-    setItems(items.map(item => item.id === id ? { ...item, quantity: newQuantity } : item));
+  // --- MANEJADORES DE LA TABLA (Actualizar precios/cantidades) ---
+  const handleUpdate = (idx, field, val) => {
+    const newItems = [...items];
+    newItems[idx][field] = val;
+    setItems(newItems);
   };
-  const handlePriceChange = (id, value) => {
-    const newPrice = parseFloat(value) || 0; 
-    setItems(items.map(item => item.id === id ? { ...item, price: newPrice } : item));
-  };
-  const handleDelete = (id) => {
-    setItems(items.filter(item => item.id !== id));
+  
+  const handleDelete = (idx) => {
+    const newItems = items.filter((_, i) => i !== idx);
+    setItems(newItems);
   };
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 relative">
       <div className="flex-1 p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Crear Presupuesto</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Nuevo Presupuesto</h1>
+        <p className="text-gray-500 mb-8">Configura los precios finales para el cliente.</p>
         
-        {/* PANEL CLIENTE */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-8">
-          <div className="flex flex-col md:flex-row md:items-end gap-4 justify-between">
-            <div className="w-full md:w-1/2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
-              <select 
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm rounded-md border"
-                value={selectedClientName}
-                onChange={(e) => setSelectedClientName(e.target.value)}
-              >
-                <option value="">-- Seleccionar un Cliente --</option>
-                {availableClients.map((client) => (
-                  <option key={client.id} value={client.name}>{client.name} - {client.company}</option>
-                ))}
-              </select>
-            </div>
-            {/* BOTÓN SUPERIOR: Solo descarga PDF (útil para previsualizar) */}
-            <button 
-              onClick={generatePDFOnly}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded shadow transition flex items-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Descargar PDF
-            </button>
+        {/* SELECTOR DE CLIENTE (CONECTADO A LA API) */}
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex-1 w-full">
+            <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <User size={16}/> Cliente
+            </label>
+            {loading ? (
+                <p className="text-sm text-gray-400">Cargando clientes...</p>
+            ) : (
+                <select 
+                    className="block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                >
+                    <option value="">-- Seleccionar Cliente --</option>
+                    {availableClients.map((client) => (
+                        <option key={client.id_cliente} value={client.id_cliente}>
+                            {client.nombre_completo}
+                        </option>
+                    ))}
+                </select>
+            )}
           </div>
-        </div>
-
-        {/* TABLA DE PRODUCTOS */}
-        <div className="mb-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">Líneas de Presupuesto ({items.length})</h2>
-          <button onClick={() => navigate('/catalogo')} className="bg-gray-900 hover:bg-gray-800 text-white py-2 px-4 rounded flex items-center gap-2 text-sm font-medium transition">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-            </svg>
-            Añadir Producto
+          
+          <button onClick={generatePDFOnly} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg flex items-center gap-2 transition">
+            <FileText size={18}/> Previsualizar PDF
           </button>
         </div>
 
+        {/* TABLA DE PRODUCTOS */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Producto</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Categoría</th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Precio</th>
-                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cant.</th>
-                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Producto</th>
+                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase">Cantidad</th>
+                <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase">Precio Unit. (€)</th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{item.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{item.category}</td>
-                  <td className="px-6 py-4 text-right">
-                    <input type="number" step="0.01" value={item.price} onChange={(e) => handlePriceChange(item.id, e.target.value)} className="w-20 border rounded px-1 text-right" />
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <input type="number" value={item.quantity} onChange={(e) => handleQuantityChange(item.id, e.target.value)} className="w-16 border rounded px-1 text-center" />
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-right">€{(item.price * item.quantity).toFixed(2)}</td>
-                  <td className="px-6 py-4 text-right"><button onClick={() => handleDelete(item.id)} className="text-red-600 font-bold">X</button></td>
-                </tr>
-              ))}
+              {items.length === 0 ? (
+                  <tr><td colSpan="5" className="p-8 text-center text-gray-400">El presupuesto está vacío. Ve al catálogo.</td></tr>
+              ) : (
+                  items.map((item, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4">
+                          <div className="font-bold text-gray-900">{item.nombre}</div>
+                          <div className="text-xs text-gray-500">{item.familia || item.categoria}</div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <input 
+                            type="number" min="1"
+                            className="w-20 border rounded p-1 text-center"
+                            value={item.cantidad}
+                            onChange={(e) => handleUpdate(index, 'cantidad', e.target.value)}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {/* CASILLA DE PRECIO PARA RELLENAR */}
+                        <input 
+                            type="number" step="0.01"
+                            className="w-24 border-2 border-orange-100 rounded p-1 text-center font-bold text-gray-800 focus:border-orange-500 outline-none"
+                            placeholder="0.00"
+                            value={item.precio}
+                            onChange={(e) => handleUpdate(index, 'precio', e.target.value)}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-right font-bold text-gray-700">
+                        {((parseFloat(item.precio)||0) * (parseInt(item.cantidad)||0)).toFixed(2)} €
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button onClick={() => handleDelete(index)} className="text-gray-400 hover:text-red-500"><Trash2 size={18}/></button>
+                      </td>
+                    </tr>
+                  ))
+              )}
             </tbody>
           </table>
-          {items.length === 0 && <div className="p-8 text-center text-gray-500">Sin productos.</div>}
+          
+          <div className="p-4 bg-gray-50 border-t flex justify-between items-center">
+             <button onClick={() => navigate('/catalogo')} className="text-orange-600 font-bold flex items-center gap-2 hover:underline">
+                <Plus size={18}/> Añadir más productos
+             </button>
+          </div>
         </div>
       </div>
 
-      {/* PANEL RESUMEN LATERAL */}
+      {/* BARRA LATERAL DE TOTALES */}
       <div className="w-full lg:w-96 bg-slate-900 text-white p-8 flex flex-col justify-between h-auto lg:h-screen sticky top-0">
         <div>
-          <h2 className="text-xl font-bold text-white mb-8 text-orange-500">Resumen de Totales</h2>
-          <div className="space-y-4 text-gray-300">
-            <div className="flex justify-between"><span>Base Imponible</span><span>€{baseImponible.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>IVA (21%)</span><span>€{iva.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Gastos de Envío</span><span>€{shipping.toFixed(2)}</span></div>
-            <div className="border-t border-gray-700 my-4 pt-4">
-              <div className="flex justify-between items-end"><span className="text-lg font-bold text-white">TOTAL</span><span className="text-2xl font-bold text-white">€{total.toFixed(2)}</span></div>
+          <h2 className="text-xl font-bold text-orange-500 mb-6">Resumen Económico</h2>
+          <div className="space-y-4 text-gray-300 text-sm">
+            <div className="flex justify-between"><span>Base Imponible</span><span>{baseImponible.toFixed(2)} €</span></div>
+            <div className="flex justify-between"><span>IVA (21%)</span><span>{iva.toFixed(2)} €</span></div>
+            <div className="border-t border-gray-700 pt-4 mt-4">
+              <div className="flex justify-between items-end">
+                  <span className="font-bold text-white text-lg">TOTAL</span>
+                  <span className="font-bold text-white text-3xl">{total.toFixed(2)} €</span>
+              </div>
             </div>
           </div>
         </div>
         
-        {/* BOTÓN PRINCIPAL: GUARDAR */}
+        {/* BOTÓN FINAL DE GUARDAR */}
         <button 
-          onClick={handleSaveQuote} // LLAMA A LA NUEVA FUNCIÓN
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 px-6 rounded-lg mt-8 shadow-lg transition"
+          onClick={handleSaveQuote}
+          disabled={items.length === 0}
+          className={`w-full py-4 px-6 rounded-lg mt-8 shadow-lg font-bold flex justify-center items-center gap-2 transition
+            ${items.length === 0 ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
         >
-          Guardar Presupuesto
+          <Save size={20}/> {items.length === 0 ? 'Presupuesto Vacío' : 'Guardar y Finalizar'}
         </button>
       </div>
     </div>

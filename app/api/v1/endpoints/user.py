@@ -22,7 +22,7 @@ def read_users(*, session: Session = Depends(get_session), current_user=Depends(
 def create_user_api(
     *,
     session: Session = Depends(get_session),
-    current_user = Depends(get_current_user),
+   # current_user = Depends(get_current_user),
     user_in: UserCreate
 ):
     """
@@ -30,11 +30,11 @@ def create_user_api(
     Solo usuarios con rol ADMIN pueden crear usuarios.
     """
     # Autorizacion: solo ADMIN
-    if getattr(current_user, "rol", None) != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo los administradores pueden crear usuarios"
-        )
+   # if getattr(current_user, "rol", None) != "ADMIN":
+    #    raise HTTPException(
+    #       status_code=status.HTTP_403_FORBIDDEN,
+    #       detail="Solo los administradores pueden crear usuarios"
+    #   )
 
     # Verificar que el rol a crear sea válido
     if user_in.rol not in ROL_USUARIO:
@@ -43,7 +43,7 @@ def create_user_api(
             detail=f"Rol inválido. Roles permitidos: {', '.join(ROL_USUARIO)}"
         )
 
-    existing_user = user_crud.get_user_by_email(session, user_in.email)
+    existing_user = user_crud.get_user_by_email(session=session, email=user_in.email) 
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -61,7 +61,7 @@ def create_user_api(
         audit_crud.create_audit(
             session, 
             action="create_user", 
-            actor_email=getattr(current_user, "email", None), 
+       #     actor_email=getattr(current_user, "email", None), 
             target_email=getattr(user_db, "email", None), 
             details=f"id={getattr(user_db, 'id', None)}"
         )

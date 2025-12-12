@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutGrid, BookOpen, Calculator, Users, LogOut, Bell, User } from 'lucide-react';
+import { LayoutGrid, BookOpen, Calculator, Users, LogOut, Bell } from 'lucide-react';
 
 export default function Layout() {
   const location = useLocation();
@@ -10,6 +10,14 @@ export default function Layout() {
     return location.pathname === path 
       ? `${baseClass} bg-mora-orange text-white` 
       : `${baseClass} text-gray-400 hover:bg-white/10 hover:text-white`;
+  };
+
+  // --- 1. AÑADE ESTA FUNCIÓN AQUÍ (Antes del return) ---
+  const handleLogout = () => {
+    // Borramos la llave
+    localStorage.removeItem('token');
+    // Forzamos la salida al login
+    window.location.href = '/login';
   };
 
   return (
@@ -41,9 +49,13 @@ export default function Layout() {
         </nav>
 
         <div className="p-4 border-t border-gray-700">
-          <Link to="/" className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white">
+          {/* --- 2. CAMBIAMOS EL LINK POR UN BOTÓN --- */}
+          <button 
+            onClick={handleLogout} 
+            className="flex w-full items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-left"
+          >
             <LogOut size={20} /> Cerrar Sesión
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -60,7 +72,7 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* CONTENIDO DE LA PÁGINA (Aquí se cargará Dashboard, Catálogo, etc.) */}
+        {/* CONTENIDO DE LA PÁGINA */}
         <div className="p-8 overflow-auto">
           <Outlet />
         </div>

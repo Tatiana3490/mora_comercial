@@ -1,110 +1,83 @@
 import sys
 import os
-import random
-from datetime import date, timedelta
-from sqlmodel import Session, select, SQLModel
-from app.utils.security import get_password_hash
 
-# --- CONFIGURACIÓN DE RUTAS ---
+# Ajuste de rutas para que Python encuentre la carpeta 'app'
 sys.path.append(os.getcwd())
 
-try:
-    from app.db import engine
-    from app.models.client import Client
-    from app.models.presupuesto import Presupuesto
-    from app.models.user import User  
-except ImportError as e:
-    print(f"❌ Error importando: {e}")
-    sys.exit(1)
+from sqlmodel import Session, SQLModel, select
+from app.db.session import engine
+from app.models.user import User
+from app.models.client import Client
+from app.utils.security import hash_password
 
-sqlite_file_name = "mora_comercial.db"
-
-def create_fake_data():
-    print(f"📂 Conectando a: {sqlite_file_name}...")
+def create_initial_data():
+    print("🔧 Inicializando datos de Usuarios y Clientes...")
     
+    # 1. Crear las tablas si no existen (Usuarios, Clientes, etc.)
+    SQLModel.metadata.create_all(engine)
+
     with Session(engine) as session:
-        print("👤 Verificando usuarios...")
+        # --- PASO A: CREAR USUARIO ADMIN (JEFE) ---
+        admin_email = "adminmora@gmail.com"
+        admin = session.exec(select(User).where(User.email == admin_email)).first()
         
-        # --- A) USUARIO COMERCIAL ---
-        email_comercial = "comercial@mora.com"
-        user_comercial = session.exec(select(User).where(User.email == email_comercial)).first()
-        
-        if not user_comercial:
-            user_comercial = User(
-                nombre="Juan Comercial",
-                apellidos="Pérez",
-                email="comercial@mora.com",
-                rol="COMERCIAL",
-                activo=True,
-                password_hash=get_password_hash("comercial123") 
-            )
-            session.add(user_comercial)
-            session.commit()
-            session.refresh(user_comercial)
-            print("   -> ✅ Usuario 'Juan Comercial' creado (Pass: comercial123).")
-
-        # --- B) USUARIO ADMIN ---
-        email_admin = "admin@mora.com"
-        user_admin = session.exec(select(User).where(User.email == email_admin)).first()
-
-        if not user_admin:
-            user_admin = User(
-                nombre="Admin General",
-                apellidos="Principal", 
-                email="admin@mora.com",
+        if not admin:
+            print(f"👤 Creando Admin: {admin_email}")
+            admin = User(
+                nombre="Admin",
+                apellidos="Mora",
+                email=admin_email,
+                password_hash=hash_password("admin123"), # Contraseña encriptada
                 rol="ADMIN",
-                activo=True,
-                # AQUÍ EL CAMBIO: Usamos una contraseña real encriptada
-                password_hash=get_password_hash("admin123")
+                activo=True
             )
-            session.add(user_admin)
-            session.commit()
-            session.refresh(user_admin)
-            print("   -> ✅ Usuario 'Admin General' creado (Pass: admin123).")
+            session.add(admin)
+        else:
+            print(f"ℹ️ El usuario {admin_email} ya existe.")
 
-        # --- CREACIÓN DE CLIENTES ---
-        print("🏢 Verificando clientes...")
-        empresas = ["Reformas Manolo S.L.", "Hotel Plaza", "Restaurante El Sol"]
-        mis_clientes = []
-
-        for nombre in empresas:
-            cliente = session.exec(select(Client).where(Client.nombre == nombre)).first()
-            if not cliente:
-                cliente = Client(
-                    nombre=nombre,
-                    nif=f"B{random.randint(10000000, 99999999)}",
-                    correo=f"info@{nombre.replace(' ', '').lower()}.com",
-                    provincia="Madrid",
-                    direccion="Calle Falsa 123",
-                    telefono="910000000",
-                    id_comercial_propietario=user_comercial.id_usuario
-                )
-                session.add(cliente)
-                session.commit()
-                session.refresh(cliente)
-            mis_clientes.append(cliente)
-
-        # --- CREACIÓN DE PRESUPUESTOS ---
-        print("📊 Generando presupuestos...")
-        casos = [
-            {"estado": "ENVIADO_ADMIN", "ref": "PRE-2025-001"},
-            {"estado": "APROBADO", "ref": "PRE-2025-002"},
-        ]
+        # --- PASO B: CREAR USUARIO COMERCIAL ---
+        comercial_email = "comercial@mora.com"
+        comercial = session.exec(select(User).where(User.email == comercial_email)).first()
         
-        for caso in casos:
-            if not session.exec(select(Presupuesto).where(Presupuesto.numero_presupuesto == caso["ref"])).first():
-                presu = Presupuesto(
-                    numero_presupuesto=caso["ref"],
-                    fecha_presupuesto=date.today(),
-                    estado=caso["estado"],
-                    id_cliente=mis_clientes[0].id_cliente, # Asignamos al primero
-                    id_comercial_creador=user_comercial.id_usuario
-                )
-                session.add(presu)
+        if not comercial:
+            print(f"👤 Creando Comercial: {comercial_email}")
+            comercial = User(
+                nombre="Juan",
+                apellidos="Vendedor",
+                email=comercial_email,
+                password_hash=hash_password("comercial123"),
+                rol="COMERCIAL",
+                activo=True
+            )
+            session.add(comercial)
+        else:
+            print(f"ℹ️ El usuario {comercial_email} ya existe.")
+        
+        # Guardamos los usuarios primero para tener sus IDs
         session.commit()
+        session.refresh(admin)
+        session.refresh(comercial)
 
-    print("\n🚀 ¡SEMILLA COMPLETADA! Usuario Admin: admin@mora.com / Pass: admin123")
+        # --- PASO C: CREAR CLIENTES ---
+        # Creamos un cliente asignado al comercial
+        cliente_nif = "B12345678"
+        cliente = session.exec(select(Client).where(Client.nif == cliente_nif)).first()
+        
+        if not cliente:
+            print("🏢 Creando Cliente de prueba...")
+            cliente = Client(
+                nombre="Construcciones Ejemplo S.L.",
+                nif=cliente_nif,
+                correo="contacto@ejemplo.com",
+                telefono="600112233",
+                direccion="Calle Obra Nueva, 12",
+                provincia="Madrid",
+                id_comercial_propietario=comercial.id_usuario # Asignado a Juan
+            )
+            session.add(cliente)
+        
+        session.commit()
+        print("✅ ¡Datos iniciales (Usuarios y Clientes) creados correctamente!")
 
 if __name__ == "__main__":
-    SQLModel.metadata.create_all(engine)
-    create_fake_data()
+    create_initial_data()

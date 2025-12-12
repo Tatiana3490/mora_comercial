@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException, status
 from sqlmodel import Session # <--- Usamos Session de SQLModel
 import bcrypt 
-
+from passlib.context import CryptContext
 # --- IMPORTS DE CONFIGURACIÓN ---
 from app.core.config import settings 
 from app.models.user import User 
@@ -30,13 +30,25 @@ def get_password_hash(password: str) -> str:
     hashed_bytes = bcrypt.hashpw(pwd_bytes, salt)
     return hashed_bytes.decode('utf-8')
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    try:
-        pwd_bytes = plain_password.encode('utf-8')
-        hash_bytes = hashed_password.encode('utf-8')
-        return bcrypt.checkpw(pwd_bytes, hash_bytes)
-    except (ValueError, TypeError, AttributeError):
-        return False
+    """Verifica si una contraseña plana coincide con el hash."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def hash_password(password: str) -> str:
+    """
+    Genera un hash seguro de la contraseña.
+    """
+    return pwd_context.hash(password)
+
+#def verify_password(plain_password: str, hashed_password: str) -> bool:
+ #   try:
+ #       pwd_bytes = plain_password.encode('utf-8')
+ #       hash_bytes = hashed_password.encode('utf-8')
+ #       return bcrypt.checkpw(pwd_bytes, hash_bytes)
+ #   except (ValueError, TypeError, AttributeError):
+ #       return False
 
 # ==========================================
 # 2. FUNCIONES DE TOKENS (JWT)

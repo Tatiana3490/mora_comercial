@@ -25,6 +25,9 @@ class PresupuestoBase(SQLModel):
     fecha_presupuesto: date = Field(default_factory=date.today)
     lugar_suministro: Optional[str] = None
     persona_contacto: Optional[str] = None
+
+    # Cliente asociado
+    id_cliente: int = Field(foreign_key="client.id_cliente")
     
     total: float = Field(default=0.0)
 
