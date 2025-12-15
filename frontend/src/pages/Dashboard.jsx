@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, Trash2, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -51,9 +51,13 @@ const Dashboard = () => {
     }
   };
 
-  // --- EDITAR (Navegar) ---
+  /// --- EDITAR (Navegar) ---
   const handleEdit = (id) => {
-    // Esto nos llevará a una página que crearemos luego: /presupuestos/editar/15
+    // 🔥 LIMPIEZA: Al entrar desde el dashboard, queremos cargar datos frescos de la BD.
+    // Borramos cualquier "memoria" que hubiera quedado de sesiones anteriores.
+    localStorage.removeItem('quoteItems');
+    localStorage.removeItem('quoteClient');
+
     navigate(`/presupuestos/editar/${id}`);
   };
 
@@ -217,15 +221,27 @@ const Dashboard = () => {
                                 </td>
 
                                 <td className="px-6 py-4 text-center flex justify-center gap-2">
+                                    {/* BOTÓN VER (Nuevo) */}
                                     <button 
-                                        onClick={() => handleEdit(quote.id)} // Ojo: usa quote.id o quote.id_presupuesto según tu modelo
+                                        onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
+                                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                                        title="Ver detalles"
+                                    >
+                                        <Eye size={18} />
+                                    </button>
+
+                                    {/* BOTÓN EDITAR */}
+                                    <button 
+                                        onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                                         title="Editar"
                                     >
                                         <Pencil size={18} />
                                     </button>
+
+                                    {/* BOTÓN ELIMINAR */}
                                     <button 
-                                        onClick={() => handleDelete(quote.id)} // Ojo: usa quote.id o quote.id_presupuesto
+                                        onClick={() => handleDelete(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                                         title="Eliminar"
                                     >

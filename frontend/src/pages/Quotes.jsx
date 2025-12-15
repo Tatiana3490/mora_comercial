@@ -7,8 +7,8 @@ import autoTable from 'jspdf-autotable';
 const Quotes = () => {
   // --- ESTADOS ---
   const navigate = useNavigate();
-  const { id } = useParams(); // Capturamos el ID de la URL
-  const [isEditing, setIsEditing] = useState(false); // Estado para saber si editamos
+  const { id } = useParams(); 
+  const [isEditing, setIsEditing] = useState(false); 
   
   const [items, setItems] = useState(() => {
     const savedItems = localStorage.getItem('quoteItems');
@@ -16,10 +16,48 @@ const Quotes = () => {
   });
   
   const [availableClients, setAvailableClients] = useState([]);
-  const [selectedClientId, setSelectedClientId] = useState('');
+  // Leemos del localStorage al iniciar
+  const [selectedClientId, setSelectedClientId] = useState(localStorage.getItem('quoteClient') || '');
   const [loading, setLoading] = useState(true);
 
-  // --- 1. CARGA INICIAL (Clientes y Datos de Edición) ---
+  // --- 🔥 1. EFECTO: PERSISTENCIA DEL CLIENTE ---
+  // Cada vez que cambie el cliente seleccionado, lo guardamos en memoria
+  useEffect(() => {
+    localStorage.setItem('quoteClient', selectedClientId);
+  }, [selectedClientId]);
+
+  // --- 2. FUNCIÓN DE CARGA DE DATOS (Definirla antes de usarla) ---
+  const cargarPresupuestoParaEditar = async (idPresupuesto) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8000/v1/presupuestos/${idPresupuesto}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // 1. Poner el cliente
+            setSelectedClientId(data.id_cliente);
+            
+            // 2. Convertir líneas del Backend a formato Frontend
+            const itemsFormateados = data.lineas.map(linea => ({
+                id_articulo: linea.id_articulo,
+                nombre: linea.descripcion,      
+                descripcion: linea.descripcion,
+                cantidad: linea.cantidad,
+                precio: linea.precio_unitario
+            }));
+            
+            setItems(itemsFormateados);
+        }
+    } catch (error) {
+        console.error("Error al cargar presupuesto:", error);
+        alert("Error al cargar los datos para editar.");
+    }
+  };
+
+  // --- 🔥 3. EFECTO: CARGA INICIAL (Clientes y Datos de Edición) ---
   useEffect(() => {
     // A. Cargar Clientes
     async function fetchClients() {
@@ -40,63 +78,39 @@ const Quotes = () => {
     }
     fetchClients();
 
-    // B. 🔥 NUEVO: Si hay ID en la URL, cargamos el presupuesto existente
+    // B. Si hay ID en la URL, gestionamos la edición
     if (id) {
         setIsEditing(true);
-        cargarPresupuestoParaEditar(id);
-    } else {
-        // Si no hay ID, miramos si hay algo guardado en local (para nuevos)
-        const savedItems = localStorage.getItem('quoteItems');
-        if (savedItems) setItems(JSON.parse(savedItems));
-    }
-  }, [id]);
-
-  // --- 🔥 NUEVO: FUNCIÓN PARA CARGAR DATOS AL EDITAR ---
-  const cargarPresupuestoParaEditar = async (idPresupuesto) => {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8000/v1/presupuestos/${idPresupuesto}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            
-            // 1. Poner el cliente
-            setSelectedClientId(data.id_cliente);
-            
-            // 2. Convertir líneas del Backend a formato Frontend
-            // Backend envía: id_articulo, descripcion, precio_unitario
-            // Frontend usa: id_articulo, nombre, precio
-            const itemsFormateados = data.lineas.map(linea => ({
-                id_articulo: linea.id_articulo,
-                nombre: linea.descripcion,      
-                descripcion: linea.descripcion,
-                cantidad: linea.cantidad,
-                precio: linea.precio_unitario
-            }));
-            
-            setItems(itemsFormateados);
+        // 🔥 CAMBIO CLAVE: Solo cargamos de la API si la lista está VACÍA.
+        // Si ya tiene cosas (items.length > 0), significa que venimos del catálogo
+        // con datos frescos, así que NO recargamos para no perderlos.
+        if (items.length === 0) {
+            cargarPresupuestoParaEditar(id);
         }
-    } catch (error) {
-        console.error("Error al cargar presupuesto:", error);
-        alert("Error al cargar los datos para editar.");
+    } else {
+       // ... (el resto del else se queda igual)
+       if (!id) {
+            const savedItems = localStorage.getItem('quoteItems');
+            if (savedItems) setItems(JSON.parse(savedItems));
+       }
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Solo se ejecuta al cambiar el ID (o al montar el componente)
 
-  // Guardar en localStorage solo si NO estamos editando (para no machacar copias locales)
+
+  // --- 4. EFECTO: PERSISTENCIA DE ÍTEMS ---
+  // Guardamos SIEMPRE para que el catálogo pueda sumar productos
   useEffect(() => {
-    if (!isEditing) {
-        localStorage.setItem('quoteItems', JSON.stringify(items));
-    }
-  }, [items, isEditing]);
+    localStorage.setItem('quoteItems', JSON.stringify(items));
+  }, [items]); // Quitamos isEditing de las dependencias
 
   // --- 💶 FORMATO ESPAÑOL ---
   const formatoMoneda = (numero) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: 'EUR',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 2,
+      useGrouping: true,
     }).format(numero);
   };
 
@@ -116,7 +130,6 @@ const Quotes = () => {
             id_cliente: parseInt(selectedClientId),
             id_comercial_creador: 1, 
             estado: "PENDIENTE",
-            // Si editamos, mantenemos fecha validez o la renovamos (aquí la renovamos)
             fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             total: total,
             lineas: items.map(item => ({
@@ -127,7 +140,6 @@ const Quotes = () => {
             }))
         };
 
-        // 🔥 NUEVO: Lógica dinámica (POST si es nuevo, PUT si es edición)
         const url = isEditing 
             ? `http://localhost:8000/v1/presupuestos/${id}` 
             : 'http://localhost:8000/v1/presupuestos/';
@@ -146,9 +158,12 @@ const Quotes = () => {
         if (response.ok) {
             alert(isEditing ? "✅ Presupuesto actualizado correctamente" : "✅ Presupuesto creado con éxito");
             
-            // Limpieza
+            // Limpieza TOTAL
             localStorage.removeItem('quoteItems');
+            localStorage.removeItem('quoteClient'); 
+            
             setItems([]);
+            setSelectedClientId(''); 
             setIsEditing(false);
             
             navigate('/dashboard');
@@ -163,36 +178,132 @@ const Quotes = () => {
     }
   };
 
-  // --- PDF ---
+  // --- PDF CON CABECERA NARANJA Y LOGO ---
+  // --- PDF ESTILO "CERÁMICAS MORA" (Elegante & Arquitectónico) ---
   const generatePDFOnly = () => {
     if (!selectedClientId) return alert("Selecciona cliente.");
     const client = availableClients.find(c => c.id_cliente == selectedClientId) || {};
     
     const doc = new jsPDF();
-    doc.setFontSize(22); doc.setTextColor(234, 88, 12); doc.text("Cerámicas Mora", 14, 20);
-    doc.setFontSize(12); doc.setTextColor(100); doc.text(`Presupuesto - ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.setFontSize(14); doc.setTextColor(0); doc.text("Cliente:", 14, 45);
-    doc.setFontSize(10); doc.text(`${client.nombre || 'Cliente'}`, 14, 52);
-    doc.text(`NIF: ${client.nif || '-'}`, 14, 57);
-
-    const rows = items.map(i => [
-        i.nombre, 
-        i.cantidad, 
-        formatoMoneda(parseFloat(i.precio)), 
-        formatoMoneda(i.cantidad * i.precio)
-    ]);
     
-    autoTable(doc, { startY: 70, head: [['Producto', 'Cant.', 'Precio', 'Total']], body: rows, headStyles: { fillColor: [234, 88, 12] } });
-    
-    const finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 80) + 10;
-    doc.text(`Total a Pagar: ${formatoMoneda(total)}`, 140, finalY + 10);
-    doc.save(`Presupuesto.pdf`);
-  };
+    // Color Corporativo: Azul Pizarra Oscuro (Inspirado en tu web)
+    const brandColor = [45, 55, 72]; 
 
-  const handleUpdate = (idx, field, val) => {
-    const newItems = [...items];
-    newItems[idx][field] = val;
-    setItems(newItems);
+    // Cargamos el logo (Debe ser el BLANCO que tienes: logo.png)
+    const logo = new Image();
+    logo.src = '/logo-mora.png'; 
+    
+    logo.onload = () => {
+        // 1. CABECERA: Franja oscura elegante
+        doc.setFillColor(...brandColor); 
+        doc.rect(0, 0, 210, 40, 'F'); // Un poco más alta (40) para dar aire
+        
+        // 2. LOGO: Blanco sobre el fondo oscuro
+        doc.addImage(logo, 'PNG', 14, 10, 50, 20); 
+        
+        // 3. DATOS EMPRESA: Texto blanco fino y elegante
+        doc.setFont("helvetica", "normal"); // Tipografía limpia
+        doc.setFontSize(9); doc.setTextColor(200, 200, 200); // Gris claro, no blanco puro
+        doc.text("CIF: B-12345678", 200, 12, { align: 'right' });
+        doc.text("Pol. Ind. La Cerámica, Nave 3", 200, 17, { align: 'right' });
+        doc.text("12000 Castellón (España)", 200, 22, { align: 'right' });
+        doc.text("info@ceramicasmora.com", 200, 27, { align: 'right' });
+        doc.text("www.ceramicasmora.com", 200, 32, { align: 'right' });
+
+        // --- CUERPO DEL DOCUMENTO ---
+        
+        // TÍTULO: Minimalista
+        doc.setFontSize(18); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
+        const titulo = isEditing 
+            ? `PRESUPUESTO Nº ${id}` 
+            : `PRESUPUESTO - ${new Date().toLocaleDateString('es-ES')}`;
+        doc.text(titulo, 14, 60);
+
+        // DATOS CLIENTE: Diseño limpio
+        doc.setFontSize(10); doc.setTextColor(100); doc.setFont("helvetica", "normal");
+        doc.text("FACTURAR A:", 14, 70);
+        
+        doc.setFontSize(12); doc.setTextColor(0); doc.setFont("helvetica", "bold");
+        doc.text(`${client.nombre || 'Cliente'}`, 14, 76);
+        
+        doc.setFontSize(10); doc.setTextColor(80); doc.setFont("helvetica", "normal");
+        doc.text(`NIF/CIF: ${client.nif || '-'}`, 14, 82);
+        doc.text(`${client.direccion || '-'}`, 14, 87);
+        doc.text(`${client.poblacion || ''} (${client.provincia || ''})`, 14, 92);
+
+        // TABLA: Estilo arquitectónico (Cabecera oscura, líneas limpias)
+        const rows = items.map(i => [
+            i.nombre, 
+            i.cantidad, 
+            formatoMoneda(parseFloat(i.precio)), 
+            formatoMoneda(i.cantidad * i.precio)
+        ]);
+        
+        autoTable(doc, { 
+            startY: 105, 
+            head: [['DESCRIPCIÓN', 'CANT.', 'PRECIO UNIT.', 'TOTAL']], 
+            body: rows, 
+            theme: 'plain', // Quitamos las rayas de cebra para un look más limpio
+            headStyles: { 
+                fillColor: brandColor, 
+                textColor: 255, 
+                fontStyle: 'bold',
+                halign: 'left',
+                cellPadding: 3
+            },
+            styles: {
+                fontSize: 10,
+                cellPadding: 3,
+                textColor: 50
+            },
+            columnStyles: {
+                0: { cellWidth: 'auto' }, 
+                1: { cellWidth: 25, halign: 'center' }, 
+                2: { cellWidth: 35, halign: 'right' }, 
+                3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' } 
+            },
+            // Añadimos una línea gris fina debajo de cada fila para separar
+            didParseCell: function (data) {
+                if (data.section === 'body' && data.column.index === 0) {
+                   // Lógica opcional si quisiéramos bordes custom
+                }
+            }
+        });
+        
+        // TOTALES: Alineados y elegantes
+        const finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 120) + 10;
+        
+        doc.setFontSize(10); doc.setTextColor(100);
+        doc.text(`Base Imponible`, 160, finalY, { align: 'right' });
+        doc.text(`${formatoMoneda(baseImponible)}`, 200, finalY, { align: 'right' });
+        
+        doc.text(`IVA (21%)`, 160, finalY + 6, { align: 'right' });
+        doc.text(`${formatoMoneda(iva)}`, 200, finalY + 6, { align: 'right' });
+        
+        // Línea divisoria elegante
+        doc.setDrawColor(...brandColor); doc.setLineWidth(0.5);
+        doc.line(150, finalY + 10, 200, finalY + 10);
+        
+        // TOTAL FINAL
+        doc.setFontSize(14); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
+        doc.text(`TOTAL`, 160, finalY + 20, { align: 'right' });
+        doc.text(`${formatoMoneda(total)}`, 200, finalY + 20, { align: 'right' });
+
+        // PIE DE PÁGINA
+        const pageHeight = doc.internal.pageSize.height;
+        doc.setFillColor(...brandColor);
+        // Pequeña franja decorativa abajo del todo
+        doc.rect(0, pageHeight - 5, 210, 5, 'F'); 
+        
+        doc.setFontSize(8); doc.setTextColor(120); doc.setFont("helvetica", "normal");
+        doc.text("Validez de la oferta: 15 días. Forma de pago según acuerdo.", 14, pageHeight - 15);
+
+        doc.save(`Presupuesto_${isEditing ? id : 'Nuevo'}.pdf`);
+    };
+
+    logo.onerror = () => {
+        alert("❌ Error: Asegúrate de tener 'logo-mora.png' en la carpeta public.");
+    };
   };
   
   const handleDelete = (idx) => setItems(items.filter((_, i) => i !== idx));
@@ -200,7 +311,6 @@ const Quotes = () => {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 relative">
       <div className="flex-1 p-8">
-        {/* Cambiamos el título según si editamos o no */}
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
             {isEditing ? `Editar Presupuesto #${id}` : 'Nuevo Presupuesto'}
         </h1>
@@ -271,7 +381,7 @@ const Quotes = () => {
           <h2 className="text-xl font-bold text-orange-500 mb-6">Resumen Económico</h2>
           <div className="space-y-4 text-gray-300 text-sm">
             <div className="flex justify-between"><span>Base Imponible</span><span>{formatoMoneda(baseImponible)}</span></div>
-            <div className="flex justify-between"><span>IVA (21%)</span><span>{formatoMoneda(iva)}</span></div>
+            <div className="flex justify-between"><span>IVA (21%)</span><span className="font-medium text-white">{formatoMoneda(iva)}</span></div>
             <div className="border-t border-gray-700 pt-4 mt-4">
               <div className="flex justify-between items-end">
                   <span className="font-bold text-white text-lg">TOTAL</span>
