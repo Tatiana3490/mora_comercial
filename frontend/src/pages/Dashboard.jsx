@@ -49,7 +49,7 @@ const Dashboard = () => {
         // --- CÁLCULOS ESTADÍSTICOS REALES ---
         
         // A. Suma total de dinero (Volumen de negocio)
-        const totalDinero = quotesData.reduce((acc, q) => acc + (q.total || 0), 0);
+        const totalDinero = quotesData.reduce((acc, q) => acc + (q.total_neto || 0), 0);
         
         // B. Contar pendientes
         const pendientes = quotesData.filter(q => q.estado === 'PENDIENTE').length;
@@ -179,7 +179,7 @@ const Dashboard = () => {
                                 </td>
                                 <td className="px-6 py-4 text-right font-bold text-gray-700">
                                     {/* Formato moneda español también en la tabla */}
-                                    {formatoMoneda(quote.total)}
+                                    {formatoMoneda(quote.total_neto)}
                                 </td>
                             </tr>
                         ))
