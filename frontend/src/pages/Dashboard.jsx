@@ -1,119 +1,192 @@
 import React, { useState, useEffect } from 'react';
+import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [quotesHistory, setQuotesHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Estados para almacenar los datos reales de la BD
+  const [stats, setStats] = useState({
+    totalIngresos: 0,
+    clientesCount: 0,
+    presupuestosPendientes: 0
+  });
+  const [recentQuotes, setRecentQuotes] = useState([]);
+  const [clientsMap, setClientsMap] = useState({}); // Para buscar nombres de clientes rápido
 
-  // Cargar el historial al iniciar
+  // --- 💶 FUNCIÓN DE FORMATO ESPAÑOL (Igual que en Quotes) ---
+  const formatoMoneda = (numero) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2
+    }).format(numero);
+  };
+
   useEffect(() => {
-    const history = localStorage.getItem('quotesHistory');
-    if (history) {
-      setQuotesHistory(JSON.parse(history));
+    async function loadDashboardData() {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        // 1. Cargar Clientes (Para contar y para saber los nombres)
+        const resClients = await fetch('http://localhost:8000/v1/clientes/', { headers });
+        const clientsData = resClients.ok ? await resClients.json() : [];
+
+        // Creamos un "diccionario" para buscar nombres rápido por ID
+        // Ejemplo: { 1: "Construcciones Pepe", 2: "Reformas Ana" }
+        const clientsDictionary = {};
+        clientsData.forEach(c => {
+            clientsDictionary[c.id_cliente] = c.nombre; // Usamos 'nombre' como corregimos antes
+        });
+        setClientsMap(clientsDictionary);
+
+        // 2. Cargar Presupuestos
+        const resQuotes = await fetch('http://localhost:8000/v1/presupuestos/', { headers });
+        const quotesData = resQuotes.ok ? await resQuotes.json() : [];
+
+        // --- CÁLCULOS ESTADÍSTICOS REALES ---
+        
+        // A. Suma total de dinero (Volumen de negocio)
+        const totalDinero = quotesData.reduce((acc, q) => acc + (q.total || 0), 0);
+        
+        // B. Contar pendientes
+        const pendientes = quotesData.filter(q => q.estado === 'PENDIENTE').length;
+
+        // Guardamos estadísticas
+        setStats({
+          totalIngresos: totalDinero,
+          clientesCount: clientsData.length,
+          presupuestosPendientes: pendientes
+        });
+
+        // C. Últimos 5 presupuestos (Invertimos array para ver los nuevos primero)
+        const ultimos = [...quotesData].reverse().slice(0, 5);
+        setRecentQuotes(ultimos);
+
+      } catch (error) {
+        console.error("Error cargando dashboard:", error);
+      } finally {
+        setLoading(false);
+      }
     }
+
+    loadDashboardData();
   }, []);
 
-  // Calcular totales para las tarjetas (KPIs)
-  const pendingCount = quotesHistory.filter(q => q.status === 'Pendiente').length;
-  const totalRevenue = quotesHistory.reduce((acc, q) => acc + q.amount, 0);
+  if (loading) {
+    return <div className="p-10 text-center text-gray-500">Cargando datos de la empresa...</div>;
+  }
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Panel de Control</h1>
-
-      {/* --- TARJETAS DE RESUMEN (KPIs) --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Tarjeta 1: Pendientes */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-yellow-400">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm font-medium uppercase">Pendientes de Aprobación</p>
-              <h2 className="text-3xl font-bold text-gray-800 mt-1">{pendingCount}</h2>
-            </div>
-            <div className="bg-yellow-100 p-3 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
+    <div className="p-8 bg-gray-50 min-h-screen">
+      {/* CABECERA CON FECHA */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <div>
+           <h1 className="text-3xl font-bold text-gray-900">Panel de Control</h1>
+           <p className="text-gray-500">Visión general del negocio</p>
         </div>
-
-        {/* Tarjeta 2: Total Presupuestado */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-400">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm font-medium uppercase">Total Presupuestado</p>
-              <h2 className="text-3xl font-bold text-gray-800 mt-1">€{totalRevenue.toFixed(2)}</h2>
-            </div>
-            <div className="bg-blue-100 p-3 rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Tarjeta 3: Acceso Directo */}
-        <div 
-          onClick={() => navigate('/presupuestos')}
-          className="bg-orange-600 p-6 rounded-xl shadow-sm cursor-pointer hover:bg-orange-700 transition text-white flex items-center justify-between"
-        >
-          <div>
-            <p className="text-orange-100 text-sm font-medium uppercase">Acción Rápida</p>
-            <h2 className="text-2xl font-bold mt-1">Crear Nuevo Presupuesto</h2>
-          </div>
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-orange-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <div className="bg-white px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-gray-600 flex items-center gap-2">
+            <Calendar size={16} className="text-orange-500"/> 
+            {/* Fecha en formato español largo */}
+            {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
       </div>
 
-      {/* --- TABLA DE ÚLTIMOS PRESUPUESTOS --- */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-800">Historial de Presupuestos</h3>
+      {/* --- TARJETAS DE ESTADÍSTICAS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        
+        {/* Tarjeta 1: VOLUMEN TOTAL (Con formato español) */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
+            <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Volumen Presupuestado</p>
+                {/* AQUI SE APLICA EL FORMATO 1.234,56 € */}
+                <h2 className="text-3xl font-bold text-gray-900">{formatoMoneda(stats.totalIngresos)}</h2>
+            </div>
+            <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                <DollarSign size={24} />
+            </div>
+        </div>
+
+        {/* Tarjeta 2: CLIENTES */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
+            <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Clientes Activos</p>
+                <h2 className="text-3xl font-bold text-gray-900">{stats.clientesCount}</h2>
+            </div>
+            <div className="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                <Users size={24} />
+            </div>
+        </div>
+
+        {/* Tarjeta 3: PENDIENTES */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
+            <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Pendientes de Aprobación</p>
+                <h2 className="text-3xl font-bold text-gray-900">{stats.presupuestosPendientes}</h2>
+            </div>
+            <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                <FileText size={24} />
+            </div>
+        </div>
+      </div>
+
+      {/* --- TABLA DE ÚLTIMOS MOVIMIENTOS --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <TrendingUp size={18} className="text-gray-400"/> Últimos Presupuestos
+            </h3>
+            <button onClick={() => navigate('/presupuestos')} className="text-sm text-orange-600 font-medium hover:underline">Ver todos</button>
         </div>
         
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Cliente</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Fecha</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {quotesHistory.length > 0 ? (
-              quotesHistory.map((quote) => (
-                <tr key={quote.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{quote.clientName}</div>
-                    <div className="text-sm text-gray-500">{quote.company}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {quote.date}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
-                    €{quote.amount.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${quote.status === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                      {quote.status}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
-                  No hay presupuestos guardados todavía.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+            <table className="w-full text-left">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                    <tr>
+                        <th className="px-6 py-3 font-semibold">Cliente</th>
+                        <th className="px-6 py-3 font-semibold">Fecha</th>
+                        <th className="px-6 py-3 font-semibold">Estado</th>
+                        <th className="px-6 py-3 font-semibold text-right">Importe Total</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    {recentQuotes.length === 0 ? (
+                        <tr>
+                            <td colSpan="4" className="px-6 py-8 text-center text-gray-400">
+                                No hay actividad reciente.
+                            </td>
+                        </tr>
+                    ) : (
+                        recentQuotes.map((quote) => (
+                            <tr key={quote.id_presupuesto} className="hover:bg-gray-50 transition">
+                                <td className="px-6 py-4 font-medium text-gray-900">
+                                    {/* Buscamos el nombre en el diccionario que creamos arriba */}
+                                    {clientsMap[quote.id_cliente] || `Cliente ID: ${quote.id_cliente}`}
+                                </td>
+                                <td className="px-6 py-4 text-sm text-gray-500">
+                                    {/* Fecha en formato español corto dd/mm/aaaa */}
+                                    {new Date(quote.fecha_creacion || Date.now()).toLocaleDateString('es-ES')}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                                        ${quote.estado === 'ACEPTADO' ? 'bg-green-100 text-green-700' : 
+                                          quote.estado === 'RECHAZADO' ? 'bg-red-100 text-red-700' : 
+                                          'bg-yellow-100 text-yellow-700'}`}>
+                                        {quote.estado}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-right font-bold text-gray-700">
+                                    {/* Formato moneda español también en la tabla */}
+                                    {formatoMoneda(quote.total)}
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+        </div>
       </div>
     </div>
   );

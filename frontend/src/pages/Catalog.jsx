@@ -15,7 +15,6 @@ const Catalog = () => {
     async function fetchProducts() {
       try {
         const token = localStorage.getItem('token');
-        // Asegúrate de que esta ruta sea correcta (/v1/articulos/ o /v1/products/)
         const response = await fetch('http://localhost:8000/v1/articulos/', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -48,7 +47,7 @@ const Catalog = () => {
     setFilteredProducts(result);
   }, [searchTerm, selectedCategory, products]);
 
-  // 3. FUNCIÓN AÑADIR (LA CLAVE ESTÁ AQUÍ)
+  // 3. FUNCIÓN AÑADIR
   const handleAddToQuote = (product) => {
     const existingItems = JSON.parse(localStorage.getItem('quoteItems')) || [];
     

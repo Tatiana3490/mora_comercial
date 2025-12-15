@@ -38,9 +38,9 @@ def build_presupuesto_completo_read(
     lineas_read: List[PresupuestoLineaRead] = []
 
     for linea in presupuesto.lineas or []:
-        # Cálculos de línea
-        bruto_linea = (linea.cantidad_m2 or 0.0) * (linea.precio_m2 or 0.0)
-        descuento_linea = bruto_linea * (linea.descuento_pct or 0.0) / 100.0
+        # Cálculos de línea (usando nombres correctos)
+        bruto_linea = (linea.cantidad or 0.0) * (linea.precio_unitario or 0.0)
+        descuento_linea = bruto_linea * (linea.descuento or 0.0) / 100.0
         neto_linea = bruto_linea - descuento_linea
 
         total_bruto += bruto_linea
@@ -50,19 +50,21 @@ def build_presupuesto_completo_read(
         # Mapeamos a esquema de lectura de línea
         lineas_read.append(
             PresupuestoLineaRead(
-                id_linea=linea.id_linea,
+                # 👇 CORRECCIONES AQUÍ 👇
+                id=linea.id,                        # Antes: id_linea
                 id_presupuesto=linea.id_presupuesto,
                 id_articulo=linea.id_articulo,
-                cantidad_m2=linea.cantidad_m2,
-                precio_m2=linea.precio_m2,
-                descuento_pct=linea.descuento_pct,
-                descripcion_articulo=linea.descripcion_articulo,
+                cantidad=linea.cantidad,            # Antes: cantidad_m2
+                precio_unitario=linea.precio_unitario, # Antes: precio_m2
+                descuento=linea.descuento,          # Antes: descuento_pct
+                descripcion=linea.descripcion,      # Antes: descripcion_articulo
             )
         )
 
     return PresupuestoCompletoRead(
         # Cabecera
-        id_presupuesto=presupuesto.id_presupuesto,
+        # 👇 CORRECCIÓN AQUÍ TAMBIÉN 👇
+        id=presupuesto.id,              # Antes: id_presupuesto
         numero_presupuesto=presupuesto.numero_presupuesto,
         fecha_presupuesto=presupuesto.fecha_presupuesto,
         lugar_suministro=presupuesto.lugar_suministro,
@@ -87,7 +89,6 @@ def build_presupuesto_completo_read(
         total_descuento=total_descuento,
         total_neto=total_neto,
     )
-
 
 # ============================
 #    READ OPERATIONS
@@ -217,7 +218,7 @@ def create_presupuesto_completo(
 
         linea = PresupuestoLinea(
             **linea_data,
-            id_presupuesto=presupuesto.id_presupuesto,
+            id_presupuesto=presupuesto.id,
         )
         session.add(linea)
 
