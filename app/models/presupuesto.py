@@ -123,6 +123,8 @@ class PresupuestoUpdate(SQLModel):
     id_comercial_creador: Optional[int] = None
     id_admin_revisor: Optional[int] = None
 
+    lineas: Optional[List["PresupuestoLineaCreate"]] = None
+
 
 class PresupuestoCompletoRead(PresupuestoRead):
     """Para leer el presupuesto con todas sus líneas."""

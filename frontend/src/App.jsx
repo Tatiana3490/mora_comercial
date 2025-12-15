@@ -39,6 +39,7 @@ function App() {
                 <Route path="/catalogo" element={<Catalog />} /> 
                 <Route path="/presupuestos" element={<Quotes />} />
                 <Route path="/clientes" element={<Clients />} />
+                <Route path="/presupuestos/editar/:id" element={<Quotes />} />
             </Route>
         </Route>
 

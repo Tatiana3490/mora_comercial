@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Trash2, Save, Plus, FileText, User } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const Quotes = () => {
-  const navigate = useNavigate();
-  
   // --- ESTADOS ---
+  const navigate = useNavigate();
+  const { id } = useParams(); // Capturamos el ID de la URL
+  const [isEditing, setIsEditing] = useState(false); // Estado para saber si editamos
+  
   const [items, setItems] = useState(() => {
     const savedItems = localStorage.getItem('quoteItems');
     return savedItems ? JSON.parse(savedItems) : [];
   });
+  
   const [availableClients, setAvailableClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // --- 1. CARGA INICIAL ---
+  // --- 1. CARGA INICIAL (Clientes y Datos de Edición) ---
   useEffect(() => {
-    const savedItems = localStorage.getItem('quoteItems');
-    if (savedItems) setItems(JSON.parse(savedItems));
-
+    // A. Cargar Clientes
     async function fetchClients() {
         try {
             const token = localStorage.getItem('token');
@@ -32,19 +33,65 @@ const Quotes = () => {
                 setAvailableClients(data);
             }
         } catch (error) {
-            console.error("Error conexión:", error);
+            console.error("Error conexión clientes:", error);
         } finally {
             setLoading(false);
         }
     }
     fetchClients();
-  }, []);
 
+    // B. 🔥 NUEVO: Si hay ID en la URL, cargamos el presupuesto existente
+    if (id) {
+        setIsEditing(true);
+        cargarPresupuestoParaEditar(id);
+    } else {
+        // Si no hay ID, miramos si hay algo guardado en local (para nuevos)
+        const savedItems = localStorage.getItem('quoteItems');
+        if (savedItems) setItems(JSON.parse(savedItems));
+    }
+  }, [id]);
+
+  // --- 🔥 NUEVO: FUNCIÓN PARA CARGAR DATOS AL EDITAR ---
+  const cargarPresupuestoParaEditar = async (idPresupuesto) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8000/v1/presupuestos/${idPresupuesto}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // 1. Poner el cliente
+            setSelectedClientId(data.id_cliente);
+            
+            // 2. Convertir líneas del Backend a formato Frontend
+            // Backend envía: id_articulo, descripcion, precio_unitario
+            // Frontend usa: id_articulo, nombre, precio
+            const itemsFormateados = data.lineas.map(linea => ({
+                id_articulo: linea.id_articulo,
+                nombre: linea.descripcion,      
+                descripcion: linea.descripcion,
+                cantidad: linea.cantidad,
+                precio: linea.precio_unitario
+            }));
+            
+            setItems(itemsFormateados);
+        }
+    } catch (error) {
+        console.error("Error al cargar presupuesto:", error);
+        alert("Error al cargar los datos para editar.");
+    }
+  };
+
+  // Guardar en localStorage solo si NO estamos editando (para no machacar copias locales)
   useEffect(() => {
-    localStorage.setItem('quoteItems', JSON.stringify(items));
-  }, [items]);
+    if (!isEditing) {
+        localStorage.setItem('quoteItems', JSON.stringify(items));
+    }
+  }, [items, isEditing]);
 
-  // --- 💶 FUNCIÓN MÁGICA PARA FORMATO ESPAÑOL ---
+  // --- 💶 FORMATO ESPAÑOL ---
   const formatoMoneda = (numero) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
@@ -58,16 +105,18 @@ const Quotes = () => {
   const iva = baseImponible * 0.21;
   const total = baseImponible + iva; 
 
-  // --- GUARDAR ---
+  // --- GUARDAR (CREAR O EDITAR) ---
   const handleSaveQuote = async () => {
     if (!selectedClientId) return alert("⚠️ Selecciona un cliente primero.");
 
     try {
         const token = localStorage.getItem('token');
+        
         const budgetData = {
             id_cliente: parseInt(selectedClientId),
             id_comercial_creador: 1, 
             estado: "PENDIENTE",
+            // Si editamos, mantenemos fecha validez o la renovamos (aquí la renovamos)
             fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             total: total,
             lineas: items.map(item => ({
@@ -78,8 +127,15 @@ const Quotes = () => {
             }))
         };
 
-        const response = await fetch('http://localhost:8000/v1/presupuestos/', {
-            method: 'POST',
+        // 🔥 NUEVO: Lógica dinámica (POST si es nuevo, PUT si es edición)
+        const url = isEditing 
+            ? `http://localhost:8000/v1/presupuestos/${id}` 
+            : 'http://localhost:8000/v1/presupuestos/';
+            
+        const method = isEditing ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
@@ -88,9 +144,13 @@ const Quotes = () => {
         });
 
         if (response.ok) {
-            alert("✅ ¡Presupuesto guardado con éxito!");
+            alert(isEditing ? "✅ Presupuesto actualizado correctamente" : "✅ Presupuesto creado con éxito");
+            
+            // Limpieza
             localStorage.removeItem('quoteItems');
             setItems([]);
+            setIsEditing(false);
+            
             navigate('/dashboard');
         } else {
             const errorData = await response.json();
@@ -103,7 +163,7 @@ const Quotes = () => {
     }
   };
 
-  // --- PDF (También con formato español) ---
+  // --- PDF ---
   const generatePDFOnly = () => {
     if (!selectedClientId) return alert("Selecciona cliente.");
     const client = availableClients.find(c => c.id_cliente == selectedClientId) || {};
@@ -115,7 +175,6 @@ const Quotes = () => {
     doc.setFontSize(10); doc.text(`${client.nombre || 'Cliente'}`, 14, 52);
     doc.text(`NIF: ${client.nif || '-'}`, 14, 57);
 
-    // Usamos formatoMoneda para la tabla del PDF
     const rows = items.map(i => [
         i.nombre, 
         i.cantidad, 
@@ -125,7 +184,6 @@ const Quotes = () => {
     
     autoTable(doc, { startY: 70, head: [['Producto', 'Cant.', 'Precio', 'Total']], body: rows, headStyles: { fillColor: [234, 88, 12] } });
     
-    // Total final en PDF
     const finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 80) + 10;
     doc.text(`Total a Pagar: ${formatoMoneda(total)}`, 140, finalY + 10);
     doc.save(`Presupuesto.pdf`);
@@ -142,7 +200,10 @@ const Quotes = () => {
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 relative">
       <div className="flex-1 p-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Nuevo Presupuesto</h1>
+        {/* Cambiamos el título según si editamos o no */}
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {isEditing ? `Editar Presupuesto #${id}` : 'Nuevo Presupuesto'}
+        </h1>
         <p className="text-gray-500 mb-8">Configura los precios finales para el cliente.</p>
         
         {/* SELECTOR */}
@@ -185,11 +246,9 @@ const Quotes = () => {
                         <input type="number" min="1" className="w-20 border rounded p-1 text-center" value={item.cantidad} onChange={(e) => handleUpdate(index, 'cantidad', e.target.value)} />
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {/* Nota: El input sigue siendo tipo number para que funcione bien, pero visualmente el total se verá con comas */}
                         <input type="number" step="0.01" className="w-24 border-2 border-orange-100 rounded p-1 text-center font-bold text-gray-800 outline-none" placeholder="0.00" value={item.precio} onChange={(e) => handleUpdate(index, 'precio', e.target.value)} />
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-gray-700">
-                        {/* AQUI APLICAMOS EL FORMATO */}
                         {formatoMoneda((parseFloat(item.precio)||0) * (parseInt(item.cantidad)||0))}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -211,7 +270,6 @@ const Quotes = () => {
         <div>
           <h2 className="text-xl font-bold text-orange-500 mb-6">Resumen Económico</h2>
           <div className="space-y-4 text-gray-300 text-sm">
-            {/* AQUI APLICAMOS EL FORMATO TAMBIÉN */}
             <div className="flex justify-between"><span>Base Imponible</span><span>{formatoMoneda(baseImponible)}</span></div>
             <div className="flex justify-between"><span>IVA (21%)</span><span>{formatoMoneda(iva)}</span></div>
             <div className="border-t border-gray-700 pt-4 mt-4">
@@ -223,7 +281,7 @@ const Quotes = () => {
           </div>
         </div>
         <button onClick={handleSaveQuote} disabled={items.length === 0} className={`w-full py-4 px-6 rounded-lg mt-8 shadow-lg font-bold flex justify-center items-center gap-2 transition ${items.length === 0 ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}>
-          <Save size={20}/> {items.length === 0 ? 'Vacío' : 'Guardar y Finalizar'}
+          <Save size={20}/> {items.length === 0 ? 'Vacío' : (isEditing ? 'Actualizar Presupuesto' : 'Guardar y Finalizar')}
         </button>
       </div>
     </div>

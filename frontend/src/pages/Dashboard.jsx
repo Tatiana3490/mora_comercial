@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar } from 'lucide-react';
+import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -22,6 +22,39 @@ const Dashboard = () => {
       currency: 'EUR',
       minimumFractionDigits: 2
     }).format(numero);
+  };
+
+  // --- BORRAR PRESUPUESTO ---
+  const handleDelete = async (id) => {
+    if (!window.confirm("¿Estás seguro de que quieres eliminar este presupuesto?")) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/v1/presupuestos/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        alert("✅ Presupuesto eliminado");
+        // Recargamos los datos para actualizar tabla y contadores
+        // (Asegúrate de que la función loadDashboardData está definida fuera del useEffect o usa window.location.reload() si es más fácil ahora)
+        window.location.reload(); 
+      } else {
+        alert("❌ Error al eliminar");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error de conexión");
+    }
+  };
+
+  // --- EDITAR (Navegar) ---
+  const handleEdit = (id) => {
+    // Esto nos llevará a una página que crearemos luego: /presupuestos/editar/15
+    navigate(`/presupuestos/editar/${id}`);
   };
 
   useEffect(() => {
@@ -149,6 +182,7 @@ const Dashboard = () => {
                         <th className="px-6 py-3 font-semibold">Fecha</th>
                         <th className="px-6 py-3 font-semibold">Estado</th>
                         <th className="px-6 py-3 font-semibold text-right">Importe Total</th>
+                        <th className="px-6 py-3 font-semibold text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -180,6 +214,23 @@ const Dashboard = () => {
                                 <td className="px-6 py-4 text-right font-bold text-gray-700">
                                     {/* Formato moneda español también en la tabla */}
                                     {formatoMoneda(quote.total_neto)}
+                                </td>
+
+                                <td className="px-6 py-4 text-center flex justify-center gap-2">
+                                    <button 
+                                        onClick={() => handleEdit(quote.id)} // Ojo: usa quote.id o quote.id_presupuesto según tu modelo
+                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                        title="Editar"
+                                    >
+                                        <Pencil size={18} />
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(quote.id)} // Ojo: usa quote.id o quote.id_presupuesto
+                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                        title="Eliminar"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
                                 </td>
                             </tr>
                         ))

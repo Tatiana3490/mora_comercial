@@ -241,14 +241,34 @@ def update_presupuesto(
     presupuesto_in: PresupuestoUpdate,
 ) -> Presupuesto:
     """
-    Actualiza la CABECERA de un presupuesto existente.
-
-    Ojo: no toca las líneas; solo los campos de la cabecera.
+    Actualiza un presupuesto existente.
+    Si vienen 'lineas' en la actualización:
+    1. Borra las antiguas.
+    2. Crea las nuevas.
     """
-    data = presupuesto_in.model_dump(exclude_unset=True)
+    # 1. Actualizar datos de cabecera (excluyendo líneas para que no falle aquí)
+    data = presupuesto_in.model_dump(exclude_unset=True, exclude={"lineas"})
 
     for key, value in data.items():
         setattr(presupuesto, key, value)
+
+    # 2. Si nos envían nuevas líneas, reemplazamos las viejas
+    if presupuesto_in.lineas is not None:
+        # A) Borrar líneas existentes
+        for linea_antigua in list(presupuesto.lineas):
+            session.delete(linea_antigua)
+        
+        # B) Crear líneas nuevas
+        for linea_in in presupuesto_in.lineas:
+            nueva_linea = PresupuestoLinea(
+                id_presupuesto=presupuesto.id, # Enlazamos con el presupuesto actual
+                id_articulo=linea_in.id_articulo,
+                descripcion=linea_in.descripcion,
+                cantidad=linea_in.cantidad,
+                precio_unitario=linea_in.precio_unitario,
+                descuento=linea_in.descuento
+            )
+            session.add(nueva_linea)
 
     session.add(presupuesto)
     session.commit()
