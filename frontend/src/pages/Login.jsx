@@ -7,7 +7,7 @@ export default function Login() {
   // 1. Estados para capturar lo que escribe el usuario
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(''); // Para mostrar mensaje si falla
+  const [error, setError] = useState(''); 
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,17 +33,29 @@ export default function Login() {
       }
 
       const data = await response.json();
-      console.log("📦 3. Datos recibidos (TOKEN):", data);
+      console.log("📦 3. Datos recibidos:", data);
 
-      // --- AQUÍ ESTÁ LA CLAVE ---
       if (data.access_token) {
-          // 1. Guardamos el token
+          // 1. Guardamos el token (IMPORTANTE)
           localStorage.setItem('token', data.access_token);
-          console.log("🔑 4. Token guardado en LocalStorage.");
+          
+          // --- 🔥 NUEVO: LÓGICA DE ROLES PARA EL DASHBOARD ---
+          // Como el backend aún no nos devuelve el rol, lo simulamos según el email.
+          // Si el email tiene "admin" (ej: adminmora@gmail.com) -> Es ADMIN
+          // Si no (ej: pepe@ceramicasmora.com) -> Es COMERCIAL
+          
+          const isAdmin = email.toLowerCase().includes('admin');
+          
+          const role = isAdmin ? 'admin' : 'comercial';
+          const userId = isAdmin ? '1' : '2'; // ID 1 para Admin, ID 2 para Comercial
 
-          // 2. FORZAMOS la recarga de la página para ir al inicio
-          console.log("🚀 5. Redirigiendo a la fuerza...");
-          window.location.href = '/'; 
+          localStorage.setItem('userRole', role);
+          localStorage.setItem('userId', userId);
+          
+          console.log(`🔑 4. Login exitoso. Rol: ${role}, ID: ${userId}`);
+
+          // 2. Redirigir al Dashboard
+          window.location.href = '/dashboard'; // O '/' según tu ruta base
       } else {
           setError('El servidor respondió OK pero no envió el token.');
       }
@@ -56,10 +68,9 @@ export default function Login() {
 
   return (
     <div className="flex h-screen w-full">
-      {/* Lado Izquierdo: Branding Oscuro (INTACTO) */}
+      {/* Lado Izquierdo: Branding Oscuro */}
       <div className="hidden w-1/2 flex-col justify-center bg-gray-900 p-12 text-white lg:flex">
         <div className="mb-8 flex items-center gap-4">
-          {/* He puesto bg-orange-500 simulando tu bg-mora-orange si no lo tienes definido */}
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orange-500 text-2xl font-bold">CM</div>
           <div>
             <h1 className="text-3xl font-bold">Cerámicas Mora</h1>
@@ -88,7 +99,6 @@ export default function Login() {
                 type="email" 
                 placeholder="usuario@ceramicasmora.com" 
                 className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                // Conectamos el input con el estado
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -100,14 +110,12 @@ export default function Login() {
                 type="password" 
                 placeholder="••••••••" 
                 className="w-full rounded-lg border border-gray-300 p-3 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                // Conectamos el input con el estado
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
 
-            {/* Mensaje de Error (solo sale si falla) */}
             {error && (
               <div className="bg-red-50 text-red-500 p-3 rounded text-sm text-center border border-red-200">
                 {error}
@@ -119,9 +127,11 @@ export default function Login() {
             </button>
           </form>
           
-          <div className="mt-6 text-center text-xs text-gray-400">
-            <p>Credenciales de prueba:</p>
-            <p>User: adminmora@gmail.com | Pass: admin123</p>
+          <div className="mt-6 text-center text-xs text-gray-400 border-t pt-4">
+            <p className="font-semibold mb-1">Cuentas para probar roles:</p>
+            <p>👮‍♂️ Admin: <span className="text-gray-600">adminmora@gmail.com</span></p>
+            <p>🧑‍💼 Comercial: <span className="text-gray-600">pepe@ceramicasmora.com</span></p>
+            <p className="mt-2">(Contraseña: admin123)</p>
           </div>
         </div>
       </div>

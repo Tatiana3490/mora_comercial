@@ -5,9 +5,15 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 const Quotes = () => {
-  // --- ESTADOS ---
+  // --- ESTADOS Y HOOKS ---
   const navigate = useNavigate();
   const { id } = useParams(); 
+
+  // --- 🔒 SEGURIDAD: LEER QUIÉN SOY ---
+  // Leemos el ID y Rol del usuario conectado
+  const userId = parseInt(localStorage.getItem('userId') || '1');
+  const userRole = localStorage.getItem('userRole') || 'admin';
+
   const [isEditing, setIsEditing] = useState(false); 
   
   const [items, setItems] = useState(() => {
@@ -21,12 +27,11 @@ const Quotes = () => {
   const [loading, setLoading] = useState(true);
 
   // --- 🔥 1. EFECTO: PERSISTENCIA DEL CLIENTE ---
-  // Cada vez que cambie el cliente seleccionado, lo guardamos en memoria
   useEffect(() => {
     localStorage.setItem('quoteClient', selectedClientId);
   }, [selectedClientId]);
 
-  // --- 2. FUNCIÓN DE CARGA DE DATOS (Definirla antes de usarla) ---
+  // --- 2. FUNCIÓN DE CARGA DE DATOS (EDICIÓN) ---
   const cargarPresupuestoParaEditar = async (idPresupuesto) => {
     try {
         const token = localStorage.getItem('token');
@@ -57,7 +62,7 @@ const Quotes = () => {
     }
   };
 
-  // --- 🔥 3. EFECTO: CARGA INICIAL (Clientes y Datos de Edición) ---
+  // --- 🔥 3. EFECTO: CARGA INICIAL (Clientes y Lógica de Edición) ---
   useEffect(() => {
     // A. Cargar Clientes
     async function fetchClients() {
@@ -67,7 +72,14 @@ const Quotes = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
-                const data = await response.json();
+                let data = await response.json(); 
+                
+                // 🔥 FILTRO DE SEGURIDAD (CLIENTES)
+                // Si NO es admin, filtramos usando el campo correcto del backend
+                if (userRole !== 'admin') {
+                    data = data.filter(c => c.id_comercial_propietario === userId);
+                }
+
                 setAvailableClients(data);
             }
         } catch (error) {
@@ -76,33 +88,32 @@ const Quotes = () => {
             setLoading(false);
         }
     }
-    fetchClients();
+    
+    fetchClients(); // Llamamos a la función
 
-    // B. Si hay ID en la URL, gestionamos la edición
+    // B. Gestión de Edición
     if (id) {
         setIsEditing(true);
-        // 🔥 CAMBIO CLAVE: Solo cargamos de la API si la lista está VACÍA.
-        // Si ya tiene cosas (items.length > 0), significa que venimos del catálogo
-        // con datos frescos, así que NO recargamos para no perderlos.
+        // Si venimos limpios (sin items en memoria), cargamos de la API.
+        // Si ya hay items (venimos del catálogo), respetamos lo que hay.
         if (items.length === 0) {
             cargarPresupuestoParaEditar(id);
         }
     } else {
-       // ... (el resto del else se queda igual)
+       // Si es NUEVO y no hay ID...
        if (!id) {
             const savedItems = localStorage.getItem('quoteItems');
             if (savedItems) setItems(JSON.parse(savedItems));
        }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Solo se ejecuta al cambiar el ID (o al montar el componente)
+  }, [id, userRole, userId]); // Añadimos dependencias de usuario
 
 
   // --- 4. EFECTO: PERSISTENCIA DE ÍTEMS ---
-  // Guardamos SIEMPRE para que el catálogo pueda sumar productos
   useEffect(() => {
     localStorage.setItem('quoteItems', JSON.stringify(items));
-  }, [items]); // Quitamos isEditing de las dependencias
+  }, [items]); 
 
   // --- 💶 FORMATO ESPAÑOL ---
   const formatoMoneda = (numero) => {
@@ -128,7 +139,8 @@ const Quotes = () => {
         
         const budgetData = {
             id_cliente: parseInt(selectedClientId),
-            id_comercial_creador: 1, 
+            // 🔥 CLAVE: Guardamos con el ID del usuario real conectado
+            id_comercial_creador: userId, 
             estado: "PENDIENTE",
             fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             total: total,
@@ -178,8 +190,7 @@ const Quotes = () => {
     }
   };
 
-  // --- PDF CON CABECERA NARANJA Y LOGO ---
-  // --- PDF ESTILO "CERÁMICAS MORA" (Elegante & Arquitectónico) ---
+  // --- PDF ESTILO "CERÁMICAS MORA" ---
   const generatePDFOnly = () => {
     if (!selectedClientId) return alert("Selecciona cliente.");
     const client = availableClients.find(c => c.id_cliente == selectedClientId) || {};
@@ -189,37 +200,35 @@ const Quotes = () => {
     // Color Corporativo: Azul Pizarra Oscuro (Inspirado en tu web)
     const brandColor = [45, 55, 72]; 
 
-    // Cargamos el logo (Debe ser el BLANCO que tienes: logo.png)
+    // Cargamos el logo (Asegúrate de tener este archivo en public)
     const logo = new Image();
-    logo.src = '/logo-mora.png'; 
+    logo.src = '/logo.png'; 
     
     logo.onload = () => {
-        // 1. CABECERA: Franja oscura elegante
+        // 1. CABECERA
         doc.setFillColor(...brandColor); 
-        doc.rect(0, 0, 210, 40, 'F'); // Un poco más alta (40) para dar aire
+        doc.rect(0, 0, 210, 40, 'F'); 
         
-        // 2. LOGO: Blanco sobre el fondo oscuro
+        // 2. LOGO
         doc.addImage(logo, 'PNG', 14, 10, 50, 20); 
         
-        // 3. DATOS EMPRESA: Texto blanco fino y elegante
-        doc.setFont("helvetica", "normal"); // Tipografía limpia
-        doc.setFontSize(9); doc.setTextColor(200, 200, 200); // Gris claro, no blanco puro
+        // 3. DATOS EMPRESA
+        doc.setFont("helvetica", "normal"); 
+        doc.setFontSize(9); doc.setTextColor(200, 200, 200); 
         doc.text("CIF: B-12345678", 200, 12, { align: 'right' });
         doc.text("Pol. Ind. La Cerámica, Nave 3", 200, 17, { align: 'right' });
         doc.text("12000 Castellón (España)", 200, 22, { align: 'right' });
         doc.text("info@ceramicasmora.com", 200, 27, { align: 'right' });
         doc.text("www.ceramicasmora.com", 200, 32, { align: 'right' });
 
-        // --- CUERPO DEL DOCUMENTO ---
-        
-        // TÍTULO: Minimalista
+        // --- CUERPO ---
         doc.setFontSize(18); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
         const titulo = isEditing 
             ? `PRESUPUESTO Nº ${id}` 
             : `PRESUPUESTO - ${new Date().toLocaleDateString('es-ES')}`;
         doc.text(titulo, 14, 60);
 
-        // DATOS CLIENTE: Diseño limpio
+        // DATOS CLIENTE
         doc.setFontSize(10); doc.setTextColor(100); doc.setFont("helvetica", "normal");
         doc.text("FACTURAR A:", 14, 70);
         
@@ -231,7 +240,7 @@ const Quotes = () => {
         doc.text(`${client.direccion || '-'}`, 14, 87);
         doc.text(`${client.poblacion || ''} (${client.provincia || ''})`, 14, 92);
 
-        // TABLA: Estilo arquitectónico (Cabecera oscura, líneas limpias)
+        // TABLA
         const rows = items.map(i => [
             i.nombre, 
             i.cantidad, 
@@ -243,7 +252,7 @@ const Quotes = () => {
             startY: 105, 
             head: [['DESCRIPCIÓN', 'CANT.', 'PRECIO UNIT.', 'TOTAL']], 
             body: rows, 
-            theme: 'plain', // Quitamos las rayas de cebra para un look más limpio
+            theme: 'plain', 
             headStyles: { 
                 fillColor: brandColor, 
                 textColor: 255, 
@@ -262,15 +271,14 @@ const Quotes = () => {
                 2: { cellWidth: 35, halign: 'right' }, 
                 3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' } 
             },
-            // Añadimos una línea gris fina debajo de cada fila para separar
             didParseCell: function (data) {
                 if (data.section === 'body' && data.column.index === 0) {
-                   // Lógica opcional si quisiéramos bordes custom
+                   // Lógica opcional
                 }
             }
         });
         
-        // TOTALES: Alineados y elegantes
+        // TOTALES
         const finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 120) + 10;
         
         doc.setFontSize(10); doc.setTextColor(100);
@@ -280,19 +288,16 @@ const Quotes = () => {
         doc.text(`IVA (21%)`, 160, finalY + 6, { align: 'right' });
         doc.text(`${formatoMoneda(iva)}`, 200, finalY + 6, { align: 'right' });
         
-        // Línea divisoria elegante
         doc.setDrawColor(...brandColor); doc.setLineWidth(0.5);
         doc.line(150, finalY + 10, 200, finalY + 10);
         
-        // TOTAL FINAL
         doc.setFontSize(14); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
         doc.text(`TOTAL`, 160, finalY + 20, { align: 'right' });
         doc.text(`${formatoMoneda(total)}`, 200, finalY + 20, { align: 'right' });
 
-        // PIE DE PÁGINA
+        // PIE
         const pageHeight = doc.internal.pageSize.height;
         doc.setFillColor(...brandColor);
-        // Pequeña franja decorativa abajo del todo
         doc.rect(0, pageHeight - 5, 210, 5, 'F'); 
         
         doc.setFontSize(8); doc.setTextColor(120); doc.setFont("helvetica", "normal");
@@ -302,11 +307,18 @@ const Quotes = () => {
     };
 
     logo.onerror = () => {
-        alert("❌ Error: Asegúrate de tener 'logo-mora.png' en la carpeta public.");
+        alert("❌ Error: Asegúrate de tener 'logo.png' en la carpeta public.");
     };
   };
   
   const handleDelete = (idx) => setItems(items.filter((_, i) => i !== idx));
+
+  // --- RENDERIZADO VISUAL ---
+  const handleUpdate = (idx, field, val) => {
+    const newItems = [...items];
+    newItems[idx][field] = val;
+    setItems(newItems);
+  };
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-gray-50 relative">
@@ -321,16 +333,25 @@ const Quotes = () => {
           <div className="flex-1 w-full">
             <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><User size={16}/> Cliente</label>
             {loading ? <p className="text-sm text-gray-400">Cargando...</p> : (
-                <select className="block w-full p-3 border border-gray-300 rounded-lg outline-none" value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)}>
-                    <option value="">-- Seleccionar Cliente --</option>
-                    {availableClients.map(c => <option key={c.id_cliente} value={c.id_cliente}>{c.nombre}</option>)}
-                </select>
+                  <select 
+                      className="block w-full p-3 border border-gray-300 rounded-lg outline-none" 
+                      value={selectedClientId} 
+                      onChange={(e) => setSelectedClientId(e.target.value)}
+                  >
+                      <option value="">-- Seleccionar Cliente --</option>
+                      {availableClients.map(c => (
+                          <option key={c.id_cliente} value={c.id_cliente}>
+                              {/* Mostramos el chivato para depurar, luego puedes dejar solo c.nombre */}
+                              {c.nombre} (Dueño ID: {c.id_comercial_propietario})
+                          </option>
+                      ))}
+                  </select>
             )}
           </div>
           <button onClick={generatePDFOnly} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg flex items-center gap-2"><FileText size={18}/> PDF</button>
         </div>
 
-        {/* TABLA */}
+        {/* TABLA DE PRODUCTOS */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

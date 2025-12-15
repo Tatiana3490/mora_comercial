@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Plus, Edit2, Trash2, Building } from 'lucide-react';
 
 const Clients = () => {
+  // --- 🔒 SEGURIDAD: LEER QUIÉN SOY ---
+  const userId = parseInt(localStorage.getItem('userId') || '1');
+  const userRole = localStorage.getItem('userRole') || 'admin';
+
   // --- ESTADOS ---
   const [clients, setClients] = useState([]); // Lista de clientes
   const [isModalOpen, setIsModalOpen] = useState(false); // Abrir/Cerrar formulario
   const [loading, setLoading] = useState(true); // Estado de carga
 
-  // Formulario adaptado a tu Base de Datos (usamos nombres en español como en el backend)
+  // Formulario adaptado a tu Base de Datos
   const [formData, setFormData] = useState({
-    id_cliente: null, // Si es null, es un cliente nuevo
+    id_cliente: null,
     nombre: '',
     nif: '',       
     correo: '',
@@ -18,8 +22,7 @@ const Clients = () => {
     provincia: ''  
   });
 
-  // --- 1. CARGAR CLIENTES (GET) ---
-  // Esta función va al servidor y trae la lista real
+  // --- 1. CARGAR CLIENTES (GET CON FILTRO) ---
   const fetchClients = async () => {
     try {
         const token = localStorage.getItem('token');
@@ -28,7 +31,14 @@ const Clients = () => {
         });
         
         if (response.ok) {
-            const data = await response.json();
+            let data = await response.json();
+
+            // 🔥 FILTRO DE SEGURIDAD
+            // Si NO soy admin, solo muestro MIS clientes (id_comercial_propietario === userId)
+            if (userRole !== 'admin') {
+                data = data.filter(c => c.id_comercial_propietario === userId);
+            }
+
             setClients(data);
         } else {
             console.error("Error al cargar clientes");
@@ -43,16 +53,14 @@ const Clients = () => {
   // Ejecutamos la carga al entrar en la página
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, []); // Se ejecuta una vez al montar
 
   // --- FUNCIONES DEL MODAL ---
-  // Limpiar formulario para crear uno nuevo
   const handleOpenCreate = () => {
     setFormData({ id_cliente: null, nombre: '', nif: '', correo: '', telefono: '', direccion: '', provincia: '' });
     setIsModalOpen(true);
   };
 
-  // Cargar datos de un cliente existente para editar
   const handleEdit = (client) => {
     setFormData({
       id_cliente: client.id_cliente,
@@ -72,9 +80,9 @@ const Clients = () => {
 
     try {
         const token = localStorage.getItem('token');
-        const isEditing = !!formData.id_cliente; // ¿Estamos editando?
+        const isEditing = !!formData.id_cliente; 
         
-        // Preparamos los datos para enviarlos a Python
+        // Preparamos los datos
         const payload = {
             nombre: formData.nombre,
             nif: formData.nif,
@@ -82,10 +90,10 @@ const Clients = () => {
             telefono: formData.telefono,
             direccion: formData.direccion,
             provincia: formData.provincia,
-            id_comercial_propietario: 1 // Asignamos al usuario 1 por defecto (Admin)
+            // 🔥 CORRECCIÓN: Asignamos el cliente al usuario conectado (TÚ), no al 1 fijo
+            id_comercial_propietario: userId 
         };
 
-        // Decidimos si es crear (POST) o editar (PUT)
         let url = 'http://localhost:8000/v1/clientes/';
         let method = 'POST';
 
@@ -106,7 +114,7 @@ const Clients = () => {
         if (response.ok) {
             alert(isEditing ? "✅ Cliente actualizado" : "✅ Cliente creado");
             setIsModalOpen(false);
-            fetchClients(); // Recargamos la lista para ver los cambios
+            fetchClients(); // Recargamos la lista filtrada
         } else {
             alert("❌ Error al guardar cliente. Revisa los datos.");
         }
@@ -128,7 +136,7 @@ const Clients = () => {
         });
 
         if (response.ok) {
-            fetchClients(); // Recargamos la lista
+            fetchClients(); 
         } else {
             alert("❌ No se pudo borrar (puede que tenga presupuestos asociados).");
         }
@@ -144,7 +152,9 @@ const Clients = () => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Gestión de Clientes</h1>
-          <p className="text-gray-500 mt-1">Cartera de clientes ({clients.length})</p>
+          <p className="text-gray-500 mt-1">
+             Cartera de {userRole === 'admin' ? 'la empresa' : 'mis clientes'} ({clients.length})
+          </p>
         </div>
         
         <button 
@@ -196,6 +206,12 @@ const Clients = () => {
                 </div>
             </div>
             ))}
+            
+            {clients.length === 0 && (
+                <div className="col-span-3 text-center py-10 text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
+                    No tienes clientes asignados todavía. ¡Crea el primero!
+                </div>
+            )}
         </div>
       )}
 
@@ -251,11 +267,11 @@ const Clients = () => {
               </div>
 
               <div className="col-span-2">
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                 <input 
-                   type="text" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-orange-500 outline-none"
-                   value={formData.provincia} onChange={(e) => setFormData({...formData, provincia: e.target.value})}
-                 />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                  <input 
+                    type="text" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-orange-500 outline-none"
+                    value={formData.provincia} onChange={(e) => setFormData({...formData, provincia: e.target.value})}
+                  />
               </div>
             </div>
 

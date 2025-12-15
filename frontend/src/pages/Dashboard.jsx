@@ -1,21 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, Trash2, Eye } from 'lucide-react';
+import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, Trash2, Eye, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   
-  // Estados para almacenar los datos reales de la BD
+  // --- 🔒 SEGURIDAD Y ROLES ---
+  // Leemos quién es el usuario. Si no hay nada (primera vez), ponemos valores por defecto para probar.
+  const userRole = localStorage.getItem('userRole') || 'admin'; 
+  const userId = parseInt(localStorage.getItem('userId') || '1');
+  
+  // Estados para datos
   const [stats, setStats] = useState({
     totalIngresos: 0,
     clientesCount: 0,
     presupuestosPendientes: 0
   });
   const [recentQuotes, setRecentQuotes] = useState([]);
-  const [clientsMap, setClientsMap] = useState({}); // Para buscar nombres de clientes rápido
+  const [clientsMap, setClientsMap] = useState({});
 
-  // --- 💶 FUNCIÓN DE FORMATO ESPAÑOL (Igual que en Quotes) ---
+  // --- 💶 FORMATO ESPAÑOL ---
   const formatoMoneda = (numero) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
@@ -24,7 +29,44 @@ const Dashboard = () => {
     }).format(numero);
   };
 
-  // --- BORRAR PRESUPUESTO ---
+  // --- 🚦 CAMBIAR ESTADO (Solo Admin) ---
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const token = localStorage.getItem('token');
+      // Usamos PUT para actualizar solo el estado
+      const response = await fetch(`http://localhost:8000/v1/presupuestos/${id}`, {
+        method: 'PUT', 
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ estado: newStatus })
+      });
+
+      if (response.ok) {
+        // ✅ Truco Visual: Actualizamos la tabla localmente para que sea instantáneo
+        setRecentQuotes(prev => prev.map(q => 
+            (q.id_presupuesto === id || q.id === id) ? { ...q, estado: newStatus } : q
+        ));
+        
+        // También actualizamos los contadores de las tarjetas recalculando sobre la marcha
+        // (Opcional: podrías volver a llamar a loadDashboardData() si prefieres)
+        if (newStatus !== 'PENDIENTE') {
+            setStats(prev => ({
+                ...prev,
+                presupuestosPendientes: Math.max(0, prev.presupuestosPendientes - 1)
+            }));
+        }
+      } else {
+        alert("❌ Error al cambiar el estado del presupuesto.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error de conexión al intentar cambiar estado.");
+    }
+  };
+
+  // --- 🗑️ BORRAR PRESUPUESTO ---
   const handleDelete = async (id) => {
     if (!window.confirm("¿Estás seguro de que quieres eliminar este presupuesto?")) return;
 
@@ -39,8 +81,6 @@ const Dashboard = () => {
 
       if (response.ok) {
         alert("✅ Presupuesto eliminado");
-        // Recargamos los datos para actualizar tabla y contadores
-        // (Asegúrate de que la función loadDashboardData está definida fuera del useEffect o usa window.location.reload() si es más fácil ahora)
         window.location.reload(); 
       } else {
         alert("❌ Error al eliminar");
@@ -51,55 +91,59 @@ const Dashboard = () => {
     }
   };
 
-  /// --- EDITAR (Navegar) ---
+  // --- ✏️ EDITAR / VER (Navegar) ---
   const handleEdit = (id) => {
-    // 🔥 LIMPIEZA: Al entrar desde el dashboard, queremos cargar datos frescos de la BD.
-    // Borramos cualquier "memoria" que hubiera quedado de sesiones anteriores.
+    // 🔥 LIMPIEZA IMPORTANTE:
+    // Al entrar desde el dashboard, queremos cargar datos frescos de la BD.
     localStorage.removeItem('quoteItems');
     localStorage.removeItem('quoteClient');
 
     navigate(`/presupuestos/editar/${id}`);
   };
 
+  // --- 📥 CARGA DE DATOS ---
   useEffect(() => {
     async function loadDashboardData() {
       try {
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // 1. Cargar Clientes (Para contar y para saber los nombres)
+        // 1. Cargar Clientes
         const resClients = await fetch('http://localhost:8000/v1/clientes/', { headers });
-        const clientsData = resClients.ok ? await resClients.json() : [];
+        let clientsData = resClients.ok ? await resClients.json() : []; // 👈 Cambia const por let
 
-        // Creamos un "diccionario" para buscar nombres rápido por ID
-        // Ejemplo: { 1: "Construcciones Pepe", 2: "Reformas Ana" }
+        // 🔥 FILTRO DE SEGURIDAD (CLIENTES)
+        // Si no es admin, solo dejamos pasar SUS clientes
+        if (userRole !== 'admin') {
+            // Asegúrate de que tu Backend devuelve el campo 'id_comercial' en el cliente
+            clientsData = clientsData.filter(c => c.id_comercial_propietario === userId);
+        }
+
+        // Diccionario para nombres (ahora solo tendrá tus clientes)
         const clientsDictionary = {};
-        clientsData.forEach(c => {
-            clientsDictionary[c.id_cliente] = c.nombre; // Usamos 'nombre' como corregimos antes
-        });
-        setClientsMap(clientsDictionary);
 
         // 2. Cargar Presupuestos
         const resQuotes = await fetch('http://localhost:8000/v1/presupuestos/', { headers });
-        const quotesData = resQuotes.ok ? await resQuotes.json() : [];
+        let quotesData = resQuotes.ok ? await resQuotes.json() : [];
 
-        // --- CÁLCULOS ESTADÍSTICOS REALES ---
-        
-        // A. Suma total de dinero (Volumen de negocio)
+        // --- 🕵️‍♂️ FILTRO DE SEGURIDAD (COMERCIAL) ---
+        // Si NO es admin, filtramos para mostrar solo SUS presupuestos
+        if (userRole !== 'admin') {
+            quotesData = quotesData.filter(q => q.id_comercial_creador === userId);
+        }
+
+        // --- CÁLCULOS ESTADÍSTICOS (Sobre los datos visibles) ---
         const totalDinero = quotesData.reduce((acc, q) => acc + (q.total_neto || 0), 0);
-        
-        // B. Contar pendientes
         const pendientes = quotesData.filter(q => q.estado === 'PENDIENTE').length;
 
-        // Guardamos estadísticas
         setStats({
           totalIngresos: totalDinero,
           clientesCount: clientsData.length,
           presupuestosPendientes: pendientes
         });
 
-        // C. Últimos 5 presupuestos (Invertimos array para ver los nuevos primero)
-        const ultimos = [...quotesData].reverse().slice(0, 5);
+        // Mostramos los últimos 10 para que se vea bien la lista
+        const ultimos = [...quotesData].reverse().slice(0, 10);
         setRecentQuotes(ultimos);
 
       } catch (error) {
@@ -110,35 +154,35 @@ const Dashboard = () => {
     }
 
     loadDashboardData();
-  }, []);
+  }, [userRole, userId]); // Se recarga si cambia el usuario
 
   if (loading) {
-    return <div className="p-10 text-center text-gray-500">Cargando datos de la empresa...</div>;
+    return <div className="p-10 text-center text-gray-500">Cargando panel de control...</div>;
   }
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      {/* CABECERA CON FECHA */}
+      {/* CABECERA */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
            <h1 className="text-3xl font-bold text-gray-900">Panel de Control</h1>
-           <p className="text-gray-500">Visión general del negocio</p>
+           <p className="text-gray-500">
+             Bienvenido, <span className="font-semibold text-orange-600 capitalize">{userRole}</span>.
+             Visión general del negocio.
+           </p>
         </div>
         <div className="bg-white px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-gray-600 flex items-center gap-2">
             <Calendar size={16} className="text-orange-500"/> 
-            {/* Fecha en formato español largo */}
             {new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </div>
       </div>
 
-      {/* --- TARJETAS DE ESTADÍSTICAS --- */}
+      {/* --- TARJETAS --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        
-        {/* Tarjeta 1: VOLUMEN TOTAL (Con formato español) */}
+        {/* Volumen */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Volumen Presupuestado</p>
-                {/* AQUI SE APLICA EL FORMATO 1.234,56 € */}
+                <p className="text-sm font-medium text-gray-500 mb-1">Volumen {userRole === 'admin' ? 'Total' : 'Mío'}</p>
                 <h2 className="text-3xl font-bold text-gray-900">{formatoMoneda(stats.totalIngresos)}</h2>
             </div>
             <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
@@ -146,7 +190,7 @@ const Dashboard = () => {
             </div>
         </div>
 
-        {/* Tarjeta 2: CLIENTES */}
+        {/* Clientes */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Clientes Activos</p>
@@ -157,7 +201,7 @@ const Dashboard = () => {
             </div>
         </div>
 
-        {/* Tarjeta 3: PENDIENTES */}
+        {/* Pendientes */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Pendientes de Aprobación</p>
@@ -169,7 +213,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* --- TABLA DE ÚLTIMOS MOVIMIENTOS --- */}
+      {/* --- TABLA --- */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -192,19 +236,17 @@ const Dashboard = () => {
                 <tbody className="divide-y divide-gray-100">
                     {recentQuotes.length === 0 ? (
                         <tr>
-                            <td colSpan="4" className="px-6 py-8 text-center text-gray-400">
+                            <td colSpan="5" className="px-6 py-8 text-center text-gray-400">
                                 No hay actividad reciente.
                             </td>
                         </tr>
                     ) : (
                         recentQuotes.map((quote) => (
-                            <tr key={quote.id_presupuesto} className="hover:bg-gray-50 transition">
+                            <tr key={quote.id_presupuesto || quote.id} className="hover:bg-gray-50 transition">
                                 <td className="px-6 py-4 font-medium text-gray-900">
-                                    {/* Buscamos el nombre en el diccionario que creamos arriba */}
                                     {clientsMap[quote.id_cliente] || `Cliente ID: ${quote.id_cliente}`}
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-500">
-                                    {/* Fecha en formato español corto dd/mm/aaaa */}
                                     {new Date(quote.fecha_creacion || Date.now()).toLocaleDateString('es-ES')}
                                 </td>
                                 <td className="px-6 py-4">
@@ -216,12 +258,34 @@ const Dashboard = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-right font-bold text-gray-700">
-                                    {/* Formato moneda español también en la tabla */}
                                     {formatoMoneda(quote.total_neto)}
                                 </td>
 
-                                <td className="px-6 py-4 text-center flex justify-center gap-2">
-                                    {/* BOTÓN VER (Nuevo) */}
+                                {/* 👇 COLUMNA DE ACCIONES INTELIGENTE 👇 */}
+                                <td className="px-6 py-4 text-center flex justify-center gap-2 items-center">
+                                    
+                                    {/* 1. BOTONES DE APROBACIÓN (SOLO ADMIN y si está PENDIENTE) */}
+                                    {userRole === 'admin' && quote.estado === 'PENDIENTE' && (
+                                        <>
+                                            <button 
+                                                onClick={() => handleStatusChange(quote.id_presupuesto || quote.id, 'ACEPTADO')} 
+                                                className="p-2 text-green-600 hover:bg-green-100 rounded-full transition mr-1"
+                                                title="Aprobar"
+                                            >
+                                                <Check size={18} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleStatusChange(quote.id_presupuesto || quote.id, 'RECHAZADO')} 
+                                                className="p-2 text-red-600 hover:bg-red-100 rounded-full transition mr-2"
+                                                title="Rechazar"
+                                            >
+                                                <X size={18} />
+                                            </button>
+                                            <div className="w-px h-5 bg-gray-300 mx-1"></div>
+                                        </>
+                                    )}
+
+                                    {/* 2. VER */}
                                     <button 
                                         onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
@@ -230,7 +294,7 @@ const Dashboard = () => {
                                         <Eye size={18} />
                                     </button>
 
-                                    {/* BOTÓN EDITAR */}
+                                    {/* 3. EDITAR */}
                                     <button 
                                         onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -239,7 +303,7 @@ const Dashboard = () => {
                                         <Pencil size={18} />
                                     </button>
 
-                                    {/* BOTÓN ELIMINAR */}
+                                    {/* 4. ELIMINAR */}
                                     <button 
                                         onClick={() => handleDelete(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
