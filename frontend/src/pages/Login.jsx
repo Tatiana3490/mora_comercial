@@ -39,23 +39,24 @@ export default function Login() {
           // 1. Guardamos el token (IMPORTANTE)
           localStorage.setItem('token', data.access_token);
           
-          // --- 🔥 NUEVO: LÓGICA DE ROLES PARA EL DASHBOARD ---
-          // Como el backend aún no nos devuelve el rol, lo simulamos según el email.
-          // Si el email tiene "admin" (ej: adminmora@gmail.com) -> Es ADMIN
-          // Si no (ej: pepe@ceramicasmora.com) -> Es COMERCIAL
+          // --- 🔥 CAMBIO CLAVE AQUÍ: GUARDAR EL EMAIL ---
+          // Guardamos el email que escribió el usuario para usarlo en el Perfil
+          localStorage.setItem('userEmail', email); 
+          // ---------------------------------------------
           
+          // --- LÓGICA DE ROLES ---
           const isAdmin = email.toLowerCase().includes('admin');
           
           const role = isAdmin ? 'admin' : 'comercial';
-          const userId = isAdmin ? '1' : '2'; // ID 1 para Admin, ID 2 para Comercial
+          const userId = isAdmin ? '1' : '2';
 
           localStorage.setItem('userRole', role);
           localStorage.setItem('userId', userId);
           
-          console.log(`🔑 4. Login exitoso. Rol: ${role}, ID: ${userId}`);
+          console.log(`🔑 4. Login exitoso. Rol: ${role}, ID: ${userId}, Email: ${email}`);
 
           // 2. Redirigir al Dashboard
-          window.location.href = '/dashboard'; // O '/' según tu ruta base
+          window.location.href = '/dashboard'; 
       } else {
           setError('El servidor respondió OK pero no envió el token.');
       }
