@@ -28,14 +28,11 @@ const Quotes = () => {
 
   const [loading, setLoading] = useState(true);
 
-  // --- FUNCIÓN PARA FORMATEAR DINERO (ESPAÑA) ---
+  // --- FUNCIÓN PARA FORMATEAR DINERO ---
   const formatoMoneda = (cantidad) => {
     let numero = parseFloat(cantidad);
     if (isNaN(numero)) numero = 0;
     
-    // 1. Fijamos a 2 decimales (queda como texto "2000.00")
-    // 2. Cambiamos el punto decimal por una coma
-    // 3. Usamos una Expresión Regular para insertar puntos cada 3 dígitos
     return numero.toFixed(2)
       .replace('.', ',') 
       .replace(/\B(?=(\d{3})+(?!\d))/g, ".") + ' €';
@@ -105,10 +102,8 @@ const Quotes = () => {
     }
   }, [id, userRole, userId]);
 
-  // Cálculos totales
-  const baseImponible = items.reduce((acc, item) => acc + ((parseFloat(item.precio) || 0) * (parseInt(item.cantidad) || 0)), 0);
-  const iva = baseImponible * 0.21;
-  const total = baseImponible + iva;
+  // --- CÁLCULOS TOTALES ---
+  const total = items.reduce((acc, item) => acc + ((parseFloat(item.precio) || 0) * (parseInt(item.cantidad) || 0)), 0);
 
   const handleSaveQuote = async () => {
     if (!selectedClientId) return toast.error("⚠️ Selecciona un cliente primero");
@@ -122,7 +117,7 @@ const Quotes = () => {
           id_comercial_creador: userId,
           estado: "PENDIENTE",
           fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          total: total,
+          total: total, 
           lineas: items.map(item => ({
             id_articulo: item.id_articulo || item.id,
             cantidad: parseInt(item.cantidad),
@@ -182,28 +177,23 @@ const Quotes = () => {
     const logo = new Image();
     logo.src = '/logo-mora.png';
 
-    // Función interna para generar el PDF cuando la imagen carga (o falla)
     const renderPDF = () => {
       // Cabecera color
       doc.setFillColor(...brandColor); doc.rect(0, 0, 210, 40, 'F');
       
-      // Logo (si cargó)
       if (logo.complete && logo.naturalHeight !== 0) {
           doc.addImage(logo, 'PNG', 14, 10, 50, 20);
       }
 
-      // Datos Empresa
       doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(200, 200, 200);
       doc.text("CIF: B45040227", 200, 12, { align: 'right' });
       doc.text("ANTIGUA CTRA. MADRID- TOLEDO, KM 38,400", 200, 17, { align: 'right' });
       doc.text("45200 Illescas (TOLEDO), España", 200, 22, { align: 'right' });
 
-      // Título
       doc.setFontSize(18); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
       const titulo = isEditing ? `PRESUPUESTO Nº ${id}` : `PRESUPUESTO - ${new Date().toLocaleDateString('es-ES')}`;
       doc.text(titulo, 14, 60);
 
-      // Datos Cliente
       doc.setFontSize(10); doc.setTextColor(100); doc.setFont("helvetica", "normal");
       doc.text("FACTURAR A:", 14, 70);
       doc.setFontSize(12); doc.setTextColor(0); doc.setFont("helvetica", "bold");
@@ -212,12 +202,11 @@ const Quotes = () => {
       doc.text(`NIF/CIF: ${client.nif || '-'}`, 14, 82);
       doc.text(`${client.direccion || '-'}`, 14, 87);
 
-      // --- TABLA DE PRODUCTOS CON FORMATO MONEDA ---
       const rows = items.map(i => [
         i.nombre,
         i.cantidad,
-        formatoMoneda(i.precio),           // Aquí aplica el punto de miles (ej: 1.200,00 €)
-        formatoMoneda(i.cantidad * i.precio) // Aquí también
+        formatoMoneda(i.precio),
+        formatoMoneda(i.cantidad * i.precio)
       ]);
 
       autoTable(doc, {
@@ -235,21 +224,10 @@ const Quotes = () => {
         }
       });
 
-      // --- TOTALES CON FORMATO MONEDA ---
       const finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 120) + 10;
-      doc.setFontSize(10); doc.setTextColor(100);
-      
-      doc.text(`Base Imponible`, 160, finalY, { align: 'right' });
-      doc.text(`${formatoMoneda(baseImponible)}`, 200, finalY, { align: 'right' }); // Formato aplicado
-
-      doc.text(`IVA (21%)`, 160, finalY + 6, { align: 'right' });
-      doc.text(`${formatoMoneda(iva)}`, 200, finalY + 6, { align: 'right' }); // Formato aplicado
-
-      doc.setDrawColor(...brandColor); doc.line(150, finalY + 10, 200, finalY + 10);
-      
       doc.setFontSize(14); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
-      doc.text(`TOTAL`, 160, finalY + 20, { align: 'right' });
-      doc.text(`${formatoMoneda(total)}`, 200, finalY + 20, { align: 'right' }); // Formato aplicado
+      doc.text(`TOTAL`, 160, finalY + 10, { align: 'right' });
+      doc.text(`${formatoMoneda(total)}`, 200, finalY + 10, { align: 'right' });
 
       doc.save(`Presupuesto_${isEditing ? id : 'Nuevo'}.pdf`);
       toast.dismiss(toastId);
@@ -258,7 +236,6 @@ const Quotes = () => {
 
     logo.onload = renderPDF;
     logo.onerror = () => {
-      // Si falla el logo, generamos el PDF igual pero sin él
       renderPDF();
     };
   };
@@ -319,8 +296,6 @@ const Quotes = () => {
                       <input type="number" min="1" className="w-20 border rounded p-1 text-center" value={item.cantidad} onChange={(e) => handleUpdate(index, 'cantidad', e.target.value)} />
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {/* NOTA: Los inputs de tipo number NO muestran separador de miles mientras escribes. 
-                          Es normal. El formato se ve en la columna Total y en el PDF. */}
                       <input type="number" step="0.01" className="w-24 border-2 border-orange-100 rounded p-1 text-center font-bold text-gray-800 outline-none" value={item.precio} onChange={(e) => handleUpdate(index, 'precio', e.target.value)} />
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-gray-700">
@@ -340,22 +315,48 @@ const Quotes = () => {
         </div>
       </div>
 
+      {/* --- SIDEBAR CON LISTADO DE PRODUCTOS --- */}
       <div className="w-full lg:w-96 bg-slate-900 text-white p-8 flex flex-col justify-between h-auto lg:h-screen sticky top-0">
-        <div>
-          <h2 className="text-xl font-bold text-orange-500 mb-6">Resumen Económico</h2>
-          <div className="space-y-4 text-gray-300 text-sm">
-            <div className="flex justify-between"><span>Base Imponible</span><span>{formatoMoneda(baseImponible)}</span></div>
-            <div className="flex justify-between"><span>IVA (21%)</span><span className="font-medium text-white">{formatoMoneda(iva)}</span></div>
-            <div className="border-t border-gray-700 pt-4 mt-4">
-              <div className="flex justify-between items-end">
-                <span className="font-bold text-white text-lg">TOTAL</span>
-                <span className="font-bold text-white text-3xl">{formatoMoneda(total)}</span>
-              </div>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <h2 className="text-xl font-bold text-orange-500 mb-6 shrink-0">Resumen Económico</h2>
+          
+          {/* LISTA DE PRODUCTOS CON SCROLL Y PRECIO UNITARIO */}
+          <div className="space-y-3 mb-6 overflow-y-auto pr-2 flex-1 min-h-0 custom-scrollbar">
+            {items.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">No hay productos seleccionados.</p>
+            ) : (
+                items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-start text-sm border-b border-gray-700 pb-2 last:border-0">
+                        <div className="text-gray-300 pr-2">
+                            <span className="block text-white font-medium">{item.nombre}</span>
+                            
+                            {/* --- AQUÍ ESTÁ EL CAMBIO --- */}
+                            <div className="text-xs text-gray-400 mt-1">
+                                <span>x{item.cantidad} ud.</span>
+                                <span className="mx-2 text-gray-600">|</span>
+                                <span>{formatoMoneda(item.precio)} /ud.</span>
+                            </div>
+                            {/* --------------------------- */}
+                            
+                        </div>
+                        <span className="text-gray-200 font-mono whitespace-nowrap pt-1">
+                            {formatoMoneda(item.precio * item.cantidad)}
+                        </span>
+                    </div>
+                ))
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-gray-700 shrink-0">
+            <div className="flex justify-between items-end">
+              <span className="font-bold text-white text-lg">TOTAL</span>
+              <span className="font-bold text-white text-3xl">{formatoMoneda(total)}</span>
             </div>
           </div>
         </div>
-        <button onClick={handleSaveQuote} disabled={items.length === 0} className={`w-full py-4 px-6 rounded-lg mt-8 shadow-lg font-bold flex justify-center items-center gap-2 transition ${items.length === 0 ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}>
-          <Save size={20} /> {items.length === 0 ? 'Vacío' : (isEditing ? 'Actualizar Presupuesto' : 'Guardar y Finalizar')}
+        
+        <button onClick={handleSaveQuote} disabled={items.length === 0} className={`w-full py-4 px-6 rounded-lg mt-8 shadow-lg font-bold flex justify-center items-center gap-2 transition shrink-0 ${items.length === 0 ? 'bg-gray-700 cursor-not-allowed text-gray-500' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}>
+          <Save size={20} /> {items.length === 0 ? 'Vacío' : (isEditing ? 'Actualizar' : 'Guardar')}
         </button>
       </div>
     </div>
