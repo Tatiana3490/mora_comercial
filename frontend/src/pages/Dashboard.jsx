@@ -6,21 +6,20 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   
-  // --- 🔒 SEGURIDAD Y ROLES ---
-  // Leemos quién es el usuario. Si no hay nada (primera vez), ponemos valores por defecto para probar.
+  // --- 🔒 SECURITY & ROLES ---
   const userRole = localStorage.getItem('userRole') || 'admin'; 
   const userId = parseInt(localStorage.getItem('userId') || '1');
   
-  // Estados para datos
+  // Data States
   const [stats, setStats] = useState({
     totalIngresos: 0,
     clientesCount: 0,
     presupuestosPendientes: 0
   });
   const [recentQuotes, setRecentQuotes] = useState([]);
-  const [clientsMap, setClientsMap] = useState({});
+  const [clientsMap, setClientsMap] = useState({}); // Stores ID -> Name mapping
 
-  // --- 💶 FORMATO ESPAÑOL ---
+  // --- 💶 SPANISH FORMAT ---
   const formatoMoneda = (numero) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
@@ -29,11 +28,10 @@ const Dashboard = () => {
     }).format(numero);
   };
 
-  // --- 🚦 CAMBIAR ESTADO (Solo Admin) ---
+  // --- 🚦 CHANGE STATUS (Admin Only) ---
   const handleStatusChange = async (id, newStatus) => {
     try {
       const token = localStorage.getItem('token');
-      // Usamos PUT para actualizar solo el estado
       const response = await fetch(`http://localhost:8000/v1/presupuestos/${id}`, {
         method: 'PUT', 
         headers: {
@@ -44,13 +42,10 @@ const Dashboard = () => {
       });
 
       if (response.ok) {
-        // ✅ Truco Visual: Actualizamos la tabla localmente para que sea instantáneo
         setRecentQuotes(prev => prev.map(q => 
             (q.id_presupuesto === id || q.id === id) ? { ...q, estado: newStatus } : q
         ));
         
-        // También actualizamos los contadores de las tarjetas recalculando sobre la marcha
-        // (Opcional: podrías volver a llamar a loadDashboardData() si prefieres)
         if (newStatus !== 'PENDIENTE') {
             setStats(prev => ({
                 ...prev,
@@ -66,7 +61,7 @@ const Dashboard = () => {
     }
   };
 
-  // --- 🗑️ BORRAR PRESUPUESTO ---
+  // --- 🗑️ DELETE QUOTE ---
   const handleDelete = async (id) => {
     if (!window.confirm("¿Estás seguro de que quieres eliminar este presupuesto?")) return;
 
@@ -91,48 +86,47 @@ const Dashboard = () => {
     }
   };
 
-  // --- ✏️ EDITAR / VER (Navegar) ---
+  // --- ✏️ EDIT / VIEW ---
   const handleEdit = (id) => {
-    // 🔥 LIMPIEZA IMPORTANTE:
-    // Al entrar desde el dashboard, queremos cargar datos frescos de la BD.
     localStorage.removeItem('quoteItems');
     localStorage.removeItem('quoteClient');
-
     navigate(`/presupuestos/editar/${id}`);
   };
 
-  // --- 📥 CARGA DE DATOS ---
+  // --- 📥 DATA LOADING ---
   useEffect(() => {
     async function loadDashboardData() {
       try {
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // 1. Cargar Clientes
+        // 1. Load Clients
         const resClients = await fetch('http://localhost:8000/v1/clientes/', { headers });
-        let clientsData = resClients.ok ? await resClients.json() : []; // 👈 Cambia const por let
+        let clientsData = resClients.ok ? await resClients.json() : [];
 
-        // 🔥 FILTRO DE SEGURIDAD (CLIENTES)
-        // Si no es admin, solo dejamos pasar SUS clientes
+        // Security Filter for Clients
         if (userRole !== 'admin') {
-            // Asegúrate de que tu Backend devuelve el campo 'id_comercial' en el cliente
             clientsData = clientsData.filter(c => c.id_comercial_propietario === userId);
         }
 
-        // Diccionario para nombres (ahora solo tendrá tus clientes)
+        // --- 🔥 CRITICAL FIX: Build the Dictionary ---
         const clientsDictionary = {};
+        clientsData.forEach(client => {
+            // Map ID to Name. Adjust property names if your API differs (e.g., id_cliente vs id)
+            clientsDictionary[client.id_cliente || client.id] = client.nombre;
+        });
+        setClientsMap(clientsDictionary); // Update state
 
-        // 2. Cargar Presupuestos
+        // 2. Load Quotes
         const resQuotes = await fetch('http://localhost:8000/v1/presupuestos/', { headers });
         let quotesData = resQuotes.ok ? await resQuotes.json() : [];
 
-        // --- 🕵️‍♂️ FILTRO DE SEGURIDAD (COMERCIAL) ---
-        // Si NO es admin, filtramos para mostrar solo SUS presupuestos
+        // Security Filter for Quotes
         if (userRole !== 'admin') {
             quotesData = quotesData.filter(q => q.id_comercial_creador === userId);
         }
 
-        // --- CÁLCULOS ESTADÍSTICOS (Sobre los datos visibles) ---
+        // Calculate Stats
         const totalDinero = quotesData.reduce((acc, q) => acc + (q.total_neto || 0), 0);
         const pendientes = quotesData.filter(q => q.estado === 'PENDIENTE').length;
 
@@ -142,7 +136,7 @@ const Dashboard = () => {
           presupuestosPendientes: pendientes
         });
 
-        // Mostramos los últimos 10 para que se vea bien la lista
+        // Show last 10
         const ultimos = [...quotesData].reverse().slice(0, 10);
         setRecentQuotes(ultimos);
 
@@ -154,7 +148,7 @@ const Dashboard = () => {
     }
 
     loadDashboardData();
-  }, [userRole, userId]); // Se recarga si cambia el usuario
+  }, [userRole, userId]);
 
   if (loading) {
     return <div className="p-10 text-center text-gray-500">Cargando panel de control...</div>;
@@ -162,7 +156,7 @@ const Dashboard = () => {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      {/* CABECERA */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
            <h1 className="text-3xl font-bold text-gray-900">Panel de Control</h1>
@@ -177,9 +171,9 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* --- TARJETAS --- */}
+      {/* --- CARDS --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Volumen */}
+        {/* Volume */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Volumen {userRole === 'admin' ? 'Total' : 'Mío'}</p>
@@ -190,7 +184,7 @@ const Dashboard = () => {
             </div>
         </div>
 
-        {/* Clientes */}
+        {/* Clients */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Clientes Activos</p>
@@ -201,7 +195,7 @@ const Dashboard = () => {
             </div>
         </div>
 
-        {/* Pendientes */}
+        {/* Pending */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Pendientes de Aprobación</p>
@@ -213,7 +207,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* --- TABLA --- */}
+      {/* --- TABLE --- */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -244,6 +238,7 @@ const Dashboard = () => {
                         recentQuotes.map((quote) => (
                             <tr key={quote.id_presupuesto || quote.id} className="hover:bg-gray-50 transition">
                                 <td className="px-6 py-4 font-medium text-gray-900">
+                                    {/* 🔥 FIXED: Uses the map to show the name */}
                                     {clientsMap[quote.id_cliente] || `Cliente ID: ${quote.id_cliente}`}
                                 </td>
                                 <td className="px-6 py-4 text-sm text-gray-500">
@@ -261,10 +256,7 @@ const Dashboard = () => {
                                     {formatoMoneda(quote.total_neto)}
                                 </td>
 
-                                {/* 👇 COLUMNA DE ACCIONES INTELIGENTE 👇 */}
                                 <td className="px-6 py-4 text-center flex justify-center gap-2 items-center">
-                                    
-                                    {/* 1. BOTONES DE APROBACIÓN (SOLO ADMIN y si está PENDIENTE) */}
                                     {userRole === 'admin' && quote.estado === 'PENDIENTE' && (
                                         <>
                                             <button 
@@ -285,7 +277,6 @@ const Dashboard = () => {
                                         </>
                                     )}
 
-                                    {/* 2. VER */}
                                     <button 
                                         onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
@@ -294,7 +285,6 @@ const Dashboard = () => {
                                         <Eye size={18} />
                                     </button>
 
-                                    {/* 3. EDITAR */}
                                     <button 
                                         onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -303,7 +293,6 @@ const Dashboard = () => {
                                         <Pencil size={18} />
                                     </button>
 
-                                    {/* 4. ELIMINAR */}
                                     <button 
                                         onClick={() => handleDelete(quote.id_presupuesto || quote.id)} 
                                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"

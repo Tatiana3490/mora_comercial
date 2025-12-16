@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ShoppingCart, ArrowRight, Folder, ChevronLeft, Package } from 'lucide-react';
+import { Search, ShoppingCart, Folder, ChevronLeft, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
 
@@ -10,10 +10,10 @@ const Catalog = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFolder, setSelectedFolder] = useState(null); // Null = Viendo carpetas
+  const [selectedFolder, setSelectedFolder] = useState(null); 
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Carrito
+  // Carrito: Leemos del localStorage al iniciar
   const [cartItems, setCartItems] = useState(() => {
       const saved = localStorage.getItem('quoteItems');
       return saved ? JSON.parse(saved) : [];
@@ -24,19 +24,22 @@ const Catalog = () => {
     async function fetchProducts() {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/v1/articulos/', { 
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        
+        // --- 🛠️ CORRECCIÓN DE URL APLICADA AQUÍ ---
+        // Usamos '/v1/' en lugar de '/api/v1/' para que coincida con tu backend
+        const response = await fetch('http://localhost:8000/v1/articulos/', { headers });
+        
         if (response.ok) {
             const data = await response.json();
             
-            // 🔥 TRUCO: Adivinamos la carpeta si la familia en BD viene vacía
+            // Clasificación por familias
             const classifiedData = data.map(p => {
-                let folder = p.familia; // Usamos la de la BD si existe
+                let folder = p.familia; 
                 
-                // Si no tiene familia o es "Otros", buscamos palabras clave en la descripción
+                // Si la familia viene vacía, intentamos adivinarla
                 if (!folder || folder === 'Otros') {
-                    const desc = p.descripcion.toLowerCase();
+                    const desc = (p.descripcion || '').toLowerCase();
                     if (desc.includes('clinker')) folder = 'Clinker';
                     else if (desc.includes('gres')) folder = 'Gres';
                     else if (desc.includes('esmaltado')) folder = 'Esmaltados';
@@ -48,6 +51,8 @@ const Catalog = () => {
             });
             
             setProducts(classifiedData);
+        } else {
+            console.error("Error respuesta API:", response.status);
         }
       } catch (error) {
         console.error("Error cargando catálogo:", error);
@@ -60,25 +65,33 @@ const Catalog = () => {
 
   // Función añadir al carrito
   const handleAddToQuote = (product) => {
-    const currentItems = [...cartItems];
-    const index = currentItems.findIndex(i => i.id_articulo === product.id_articulo);
-    if (index >= 0) currentItems[index].cantidad++;
-    else currentItems.push({
-        id_temp: Date.now(),
-        id_articulo: product.id_articulo,
-        nombre: product.descripcion,
-        descripcion: product.descripcion,
-        familia: product.familia,
-        cantidad: 1,
-        precio: parseFloat(product.precio_unitario || 0)
-    });
-    setCartItems(currentItems);
+    const saved = localStorage.getItem('quoteItems');
+    let currentItems = saved ? JSON.parse(saved) : [];
+
+    // Buscamos si ya existe usando 'id'
+    const index = currentItems.findIndex(i => i.id === product.id);
+
+    if (index >= 0) {
+        currentItems[index].cantidad += 1;
+    } else {
+        currentItems.push({
+            id: product.id,
+            nombre: product.descripcion,
+            descripcion: product.descripcion,
+            familia: product.familia,
+            cantidad: 1,
+            precio: parseFloat(product.precio || 0),
+            imagen: product.url_imagen
+        });
+    }
+
     localStorage.setItem('quoteItems', JSON.stringify(currentItems));
+    setCartItems(currentItems);
   };
 
-  // Filtrar productos según carpeta seleccionada y buscador
   const filteredProducts = products.filter(p => {
-      const matchesSearch = p.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+      const desc = p.descripcion || '';
+      const matchesSearch = desc.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesFolder = selectedFolder ? p.familia === selectedFolder : true;
       return matchesSearch && matchesFolder;
   });
@@ -93,7 +106,6 @@ const Catalog = () => {
           <div className="container mx-auto flex flex-col md:flex-row gap-4 justify-between items-center">
               
               <div className="flex items-center gap-4 w-full md:w-auto">
-                {/* Botón Volver (Solo si estamos dentro de una carpeta) */}
                 {selectedFolder && (
                     <button onClick={() => setSelectedFolder(null)} className="p-2 hover:bg-gray-100 rounded-full transition">
                         <ChevronLeft size={24} className="text-gray-600"/>
@@ -104,7 +116,6 @@ const Catalog = () => {
                     {selectedFolder ? selectedFolder : 'Catálogo General'}
                 </h1>
 
-                {/* Buscador (Solo visible dentro de carpeta para no saturar) */}
                 {selectedFolder && (
                     <div className="relative ml-4 flex-1 md:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
@@ -117,9 +128,12 @@ const Catalog = () => {
                 )}
               </div>
 
-              {/* Botón Carrito */}
+              {/* Botón Carrito - CAMBIO DE RUTA AQUÍ 👇 */}
               {cartItems.length > 0 && (
-                  <button onClick={() => navigate('/dashboard')} className="bg-orange-600 text-white px-5 py-2 rounded-full shadow-lg flex items-center gap-2 hover:bg-orange-700 transition">
+                  <button 
+                      onClick={() => navigate('/presupuestos')} 
+                      className="bg-orange-600 text-white px-5 py-2 rounded-full shadow-lg flex items-center gap-2 hover:bg-orange-700 transition animate-in fade-in zoom-in duration-300"
+                  >
                       <ShoppingCart size={18} />
                       <span className="font-bold">{cartItems.length}</span>
                       <span className="hidden md:inline text-sm">Ver Presupuesto</span>
@@ -131,13 +145,11 @@ const Catalog = () => {
       {/* --- CONTENIDO PRINCIPAL --- */}
       <div className="container mx-auto px-6 py-8">
         
-        {/* VISTA 1: LAS CARPETAS (Si no has seleccionado ninguna) */}
+        {/* VISTA 1: LAS CARPETAS */}
         {!selectedFolder ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                 {FOLDERS.map(folderName => {
-                    // Contamos cuántos productos hay dentro para mostrar el numerito
                     const count = products.filter(p => p.familia === folderName).length;
-                    
                     return (
                         <button 
                             key={folderName}
@@ -156,7 +168,7 @@ const Catalog = () => {
                 })}
             </div>
         ) : (
-            // VISTA 2: LOS PRODUCTOS (Grid de tarjetas)
+            // VISTA 2: LOS PRODUCTOS
             <div>
                  {filteredProducts.length === 0 ? (
                     <div className="text-center py-20">
@@ -167,7 +179,6 @@ const Catalog = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {filteredProducts.map((product, index) => (
                             <ProductCard 
-                                // CAMBIAMOS LA KEY: Usamos ID + index para garantizar que sea única
                                 key={`${product.id}-${index}`} 
                                 product={product} 
                                 onAddToQuote={handleAddToQuote} 

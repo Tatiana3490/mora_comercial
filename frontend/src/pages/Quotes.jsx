@@ -9,29 +9,47 @@ const Quotes = () => {
   const navigate = useNavigate();
   const { id } = useParams(); 
 
-  // --- 🔒 SEGURIDAD: LEER QUIÉN SOY ---
-  // Leemos el ID y Rol del usuario conectado
+  // --- 🔒 SEGURIDAD ---
   const userId = parseInt(localStorage.getItem('userId') || '1');
   const userRole = localStorage.getItem('userRole') || 'admin';
 
   const [isEditing, setIsEditing] = useState(false); 
   
+  // INICIALIZACIÓN: Solo leemos del localStorage si NO hay ID (es decir, si es NUEVO)
   const [items, setItems] = useState(() => {
-    const savedItems = localStorage.getItem('quoteItems');
-    return savedItems ? JSON.parse(savedItems) : [];
+    if (!id) { 
+        const savedItems = localStorage.getItem('quoteItems');
+        return savedItems ? JSON.parse(savedItems) : [];
+    }
+    return []; // Si estamos editando (hay id), empezamos vacíos hasta que cargue la API
   });
   
   const [availableClients, setAvailableClients] = useState([]);
-  // Leemos del localStorage al iniciar
-  const [selectedClientId, setSelectedClientId] = useState(localStorage.getItem('quoteClient') || '');
+  
+  // Igual para el cliente: solo recuperamos borrador si es nuevo
+  const [selectedClientId, setSelectedClientId] = useState(() => {
+      if (!id) return localStorage.getItem('quoteClient') || '';
+      return '';
+  });
+
   const [loading, setLoading] = useState(true);
 
-  // --- 🔥 1. EFECTO: PERSISTENCIA DEL CLIENTE ---
+  // --- 🔥 1. PERSISTENCIA INTELIGENTE (LA CLAVE DEL ARREGLO) ---
+  // Solo guardamos en localStorage si estamos creando uno NUEVO (!id).
+  // Si estamos editando, NO sobrescribimos el borrador del "Nuevo Presupuesto".
   useEffect(() => {
-    localStorage.setItem('quoteClient', selectedClientId);
-  }, [selectedClientId]);
+    if (!id) {
+        localStorage.setItem('quoteClient', selectedClientId);
+    }
+  }, [selectedClientId, id]);
 
-  // --- 2. FUNCIÓN DE CARGA DE DATOS (EDICIÓN) ---
+  useEffect(() => {
+    if (!id) {
+        localStorage.setItem('quoteItems', JSON.stringify(items));
+    }
+  }, [items, id]);
+
+  // --- 2. CARGA DE DATOS PARA EDITAR ---
   const cargarPresupuestoParaEditar = async (idPresupuesto) => {
     try {
         const token = localStorage.getItem('token');
@@ -42,16 +60,15 @@ const Quotes = () => {
         if (response.ok) {
             const data = await response.json();
             
-            // 1. Poner el cliente
             setSelectedClientId(data.id_cliente);
             
-            // 2. Convertir líneas del Backend a formato Frontend
             const itemsFormateados = data.lineas.map(linea => ({
                 id_articulo: linea.id_articulo,
                 nombre: linea.descripcion,      
                 descripcion: linea.descripcion,
                 cantidad: linea.cantidad,
-                precio: linea.precio_unitario
+                precio: linea.precio_unitario,
+                familia: linea.familia || ''
             }));
             
             setItems(itemsFormateados);
@@ -62,9 +79,8 @@ const Quotes = () => {
     }
   };
 
-  // --- 🔥 3. EFECTO: CARGA INICIAL (Clientes y Lógica de Edición) ---
+  // --- 3. CARGA INICIAL (Clientes y Lógica de Edición) ---
   useEffect(() => {
-    // A. Cargar Clientes
     async function fetchClients() {
         try {
             const token = localStorage.getItem('token');
@@ -73,13 +89,9 @@ const Quotes = () => {
             });
             if (response.ok) {
                 let data = await response.json(); 
-                
-                // 🔥 FILTRO DE SEGURIDAD (CLIENTES)
-                // Si NO es admin, filtramos usando el campo correcto del backend
                 if (userRole !== 'admin') {
                     data = data.filter(c => c.id_comercial_propietario === userId);
                 }
-
                 setAvailableClients(data);
             }
         } catch (error) {
@@ -89,48 +101,30 @@ const Quotes = () => {
         }
     }
     
-    fetchClients(); // Llamamos a la función
+    fetchClients();
 
-    // B. Gestión de Edición
+    // Gestión de Edición
     if (id) {
         setIsEditing(true);
-        // Si venimos limpios (sin items en memoria), cargamos de la API.
-        // Si ya hay items (venimos del catálogo), respetamos lo que hay.
-        if (items.length === 0) {
-            cargarPresupuestoParaEditar(id);
-        }
-    } else {
-       // Si es NUEVO y no hay ID...
-       if (!id) {
-            const savedItems = localStorage.getItem('quoteItems');
-            if (savedItems) setItems(JSON.parse(savedItems));
-       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, userRole, userId]); // Añadimos dependencias de usuario
+        // Limpiamos cualquier rastro de localStorage visualmente
+        // y cargamos los datos reales de la base de datos
+        cargarPresupuestoParaEditar(id);
+    } 
+  }, [id, userRole, userId]);
 
 
-  // --- 4. EFECTO: PERSISTENCIA DE ÍTEMS ---
-  useEffect(() => {
-    localStorage.setItem('quoteItems', JSON.stringify(items));
-  }, [items]); 
-
-  // --- 💶 FORMATO ESPAÑOL ---
+  // --- FORMATO Y CÁLCULOS ---
   const formatoMoneda = (numero) => {
     return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      useGrouping: true,
+      style: 'currency', currency: 'EUR', minimumFractionDigits: 2
     }).format(numero);
   };
 
-  // --- CÁLCULOS ---
   const baseImponible = items.reduce((acc, item) => acc + ((parseFloat(item.precio) || 0) * (parseInt(item.cantidad) || 0)), 0);
   const iva = baseImponible * 0.21;
   const total = baseImponible + iva; 
 
-  // --- GUARDAR (CREAR O EDITAR) ---
+  // --- GUARDAR (LIMPIEZA TOTAL AL FINALIZAR) ---
   const handleSaveQuote = async () => {
     if (!selectedClientId) return alert("⚠️ Selecciona un cliente primero.");
 
@@ -139,7 +133,6 @@ const Quotes = () => {
         
         const budgetData = {
             id_cliente: parseInt(selectedClientId),
-            // 🔥 CLAVE: Guardamos con el ID del usuario real conectado
             id_comercial_creador: userId, 
             estado: "PENDIENTE",
             fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -155,7 +148,6 @@ const Quotes = () => {
         const url = isEditing 
             ? `http://localhost:8000/v1/presupuestos/${id}` 
             : 'http://localhost:8000/v1/presupuestos/';
-            
         const method = isEditing ? 'PUT' : 'POST';
 
         const response = await fetch(url, {
@@ -168,21 +160,23 @@ const Quotes = () => {
         });
 
         if (response.ok) {
-            alert(isEditing ? "✅ Presupuesto actualizado correctamente" : "✅ Presupuesto creado con éxito");
+            alert(isEditing ? "✅ Presupuesto actualizado" : "✅ Presupuesto creado y enviado a pendientes");
             
-            // Limpieza TOTAL
+            // --- 🧹 LIMPIEZA PROFUNDA ---
+            // Borramos la memoria del navegador para que el próximo sea nuevo de verdad
             localStorage.removeItem('quoteItems');
             localStorage.removeItem('quoteClient'); 
             
+            // Limpiamos el estado local
             setItems([]);
             setSelectedClientId(''); 
             setIsEditing(false);
             
+            // Redirigimos al Dashboard (donde se verá como PENDIENTE)
             navigate('/dashboard');
         } else {
             const errorData = await response.json();
-            console.error("Detalle del error:", errorData);
-            alert(`❌ Error: ${errorData.detail?.[0]?.msg || 'Revisa la consola'}`);
+            alert(`❌ Error: ${errorData.detail?.[0]?.msg || 'Revisa los datos'}`);
         }
     } catch (error) {
         console.error(error);
@@ -190,130 +184,58 @@ const Quotes = () => {
     }
   };
 
-  // --- PDF ESTILO "CERÁMICAS MORA" ---
+  // --- PDF ---
   const generatePDFOnly = () => {
     if (!selectedClientId) return alert("Selecciona cliente.");
     const client = availableClients.find(c => c.id_cliente == selectedClientId) || {};
-    
     const doc = new jsPDF();
-    
-    // Color Corporativo: Azul Pizarra Oscuro (Inspirado en tu web)
     const brandColor = [45, 55, 72]; 
-
-    // Cargamos el logo (Asegúrate de tener este archivo en public)
     const logo = new Image();
-    logo.src = '/logo.png'; 
+    logo.src = '/logo-mora.png'; 
     
     logo.onload = () => {
-        // 1. CABECERA
-        doc.setFillColor(...brandColor); 
-        doc.rect(0, 0, 210, 40, 'F'); 
-        
-        // 2. LOGO
+        doc.setFillColor(...brandColor); doc.rect(0, 0, 210, 40, 'F'); 
         doc.addImage(logo, 'PNG', 14, 10, 50, 20); 
         
-        // 3. DATOS EMPRESA
-        doc.setFont("helvetica", "normal"); 
-        doc.setFontSize(9); doc.setTextColor(200, 200, 200); 
+        doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(200, 200, 200); 
         doc.text("CIF: B-12345678", 200, 12, { align: 'right' });
         doc.text("Pol. Ind. La Cerámica, Nave 3", 200, 17, { align: 'right' });
         doc.text("12000 Castellón (España)", 200, 22, { align: 'right' });
-        doc.text("info@ceramicasmora.com", 200, 27, { align: 'right' });
-        doc.text("www.ceramicasmora.com", 200, 32, { align: 'right' });
 
-        // --- CUERPO ---
         doc.setFontSize(18); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
-        const titulo = isEditing 
-            ? `PRESUPUESTO Nº ${id}` 
-            : `PRESUPUESTO - ${new Date().toLocaleDateString('es-ES')}`;
+        const titulo = isEditing ? `PRESUPUESTO Nº ${id}` : `PRESUPUESTO - ${new Date().toLocaleDateString('es-ES')}`;
         doc.text(titulo, 14, 60);
 
-        // DATOS CLIENTE
         doc.setFontSize(10); doc.setTextColor(100); doc.setFont("helvetica", "normal");
         doc.text("FACTURAR A:", 14, 70);
-        
         doc.setFontSize(12); doc.setTextColor(0); doc.setFont("helvetica", "bold");
         doc.text(`${client.nombre || 'Cliente'}`, 14, 76);
-        
         doc.setFontSize(10); doc.setTextColor(80); doc.setFont("helvetica", "normal");
         doc.text(`NIF/CIF: ${client.nif || '-'}`, 14, 82);
         doc.text(`${client.direccion || '-'}`, 14, 87);
-        doc.text(`${client.poblacion || ''} (${client.provincia || ''})`, 14, 92);
 
-        // TABLA
-        const rows = items.map(i => [
-            i.nombre, 
-            i.cantidad, 
-            formatoMoneda(parseFloat(i.precio)), 
-            formatoMoneda(i.cantidad * i.precio)
-        ]);
-        
+        const rows = items.map(i => [i.nombre, i.cantidad, formatoMoneda(parseFloat(i.precio)), formatoMoneda(i.cantidad * i.precio)]);
         autoTable(doc, { 
-            startY: 105, 
-            head: [['DESCRIPCIÓN', 'CANT.', 'PRECIO UNIT.', 'TOTAL']], 
-            body: rows, 
-            theme: 'plain', 
-            headStyles: { 
-                fillColor: brandColor, 
-                textColor: 255, 
-                fontStyle: 'bold',
-                halign: 'left',
-                cellPadding: 3
-            },
-            styles: {
-                fontSize: 10,
-                cellPadding: 3,
-                textColor: 50
-            },
-            columnStyles: {
-                0: { cellWidth: 'auto' }, 
-                1: { cellWidth: 25, halign: 'center' }, 
-                2: { cellWidth: 35, halign: 'right' }, 
-                3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' } 
-            },
-            didParseCell: function (data) {
-                if (data.section === 'body' && data.column.index === 0) {
-                   // Lógica opcional
-                }
-            }
+            startY: 105, head: [['DESCRIPCIÓN', 'CANT.', 'PRECIO UNIT.', 'TOTAL']], body: rows, theme: 'plain', 
+            headStyles: { fillColor: brandColor, textColor: 255, fontStyle: 'bold', halign: 'left', cellPadding: 3 },
+            styles: { fontSize: 10, cellPadding: 3, textColor: 50 },
+            columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 25, halign: 'center' }, 2: { cellWidth: 35, halign: 'right' }, 3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' } }
         });
         
-        // TOTALES
         const finalY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 120) + 10;
-        
         doc.setFontSize(10); doc.setTextColor(100);
-        doc.text(`Base Imponible`, 160, finalY, { align: 'right' });
-        doc.text(`${formatoMoneda(baseImponible)}`, 200, finalY, { align: 'right' });
-        
-        doc.text(`IVA (21%)`, 160, finalY + 6, { align: 'right' });
-        doc.text(`${formatoMoneda(iva)}`, 200, finalY + 6, { align: 'right' });
-        
-        doc.setDrawColor(...brandColor); doc.setLineWidth(0.5);
-        doc.line(150, finalY + 10, 200, finalY + 10);
-        
+        doc.text(`Base Imponible`, 160, finalY, { align: 'right' }); doc.text(`${formatoMoneda(baseImponible)}`, 200, finalY, { align: 'right' });
+        doc.text(`IVA (21%)`, 160, finalY + 6, { align: 'right' }); doc.text(`${formatoMoneda(iva)}`, 200, finalY + 6, { align: 'right' });
+        doc.setDrawColor(...brandColor); doc.line(150, finalY + 10, 200, finalY + 10);
         doc.setFontSize(14); doc.setTextColor(...brandColor); doc.setFont("helvetica", "bold");
-        doc.text(`TOTAL`, 160, finalY + 20, { align: 'right' });
-        doc.text(`${formatoMoneda(total)}`, 200, finalY + 20, { align: 'right' });
-
-        // PIE
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setFillColor(...brandColor);
-        doc.rect(0, pageHeight - 5, 210, 5, 'F'); 
-        
-        doc.setFontSize(8); doc.setTextColor(120); doc.setFont("helvetica", "normal");
-        doc.text("Validez de la oferta: 15 días. Forma de pago según acuerdo.", 14, pageHeight - 15);
+        doc.text(`TOTAL`, 160, finalY + 20, { align: 'right' }); doc.text(`${formatoMoneda(total)}`, 200, finalY + 20, { align: 'right' });
 
         doc.save(`Presupuesto_${isEditing ? id : 'Nuevo'}.pdf`);
     };
-
-    logo.onerror = () => {
-        alert("❌ Error: Asegúrate de tener 'logo.png' en la carpeta public.");
-    };
+    logo.onerror = () => { alert("⚠️ Logo no encontrado. Generando sin logo."); };
   };
   
   const handleDelete = (idx) => setItems(items.filter((_, i) => i !== idx));
-
-  // --- RENDERIZADO VISUAL ---
   const handleUpdate = (idx, field, val) => {
     const newItems = [...items];
     newItems[idx][field] = val;
@@ -328,22 +250,14 @@ const Quotes = () => {
         </h1>
         <p className="text-gray-500 mb-8">Configura los precios finales para el cliente.</p>
         
-        {/* SELECTOR */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
             <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><User size={16}/> Cliente</label>
             {loading ? <p className="text-sm text-gray-400">Cargando...</p> : (
-                  <select 
-                      className="block w-full p-3 border border-gray-300 rounded-lg outline-none" 
-                      value={selectedClientId} 
-                      onChange={(e) => setSelectedClientId(e.target.value)}
-                  >
+                  <select className="block w-full p-3 border border-gray-300 rounded-lg outline-none" value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)}>
                       <option value="">-- Seleccionar Cliente --</option>
                       {availableClients.map(c => (
-                          <option key={c.id_cliente} value={c.id_cliente}>
-                              {/* Mostramos el chivato para depurar, luego puedes dejar solo c.nombre */}
-                              {c.nombre} (Dueño ID: {c.id_comercial_propietario})
-                          </option>
+                          <option key={c.id_cliente} value={c.id_cliente}>{c.nombre}</option>
                       ))}
                   </select>
             )}
@@ -351,7 +265,6 @@ const Quotes = () => {
           <button onClick={generatePDFOnly} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg flex items-center gap-2"><FileText size={18}/> PDF</button>
         </div>
 
-        {/* TABLA DE PRODUCTOS */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -365,7 +278,7 @@ const Quotes = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {items.length === 0 ? (
-                  <tr><td colSpan="5" className="p-8 text-center text-gray-400">Presupuesto vacío.</td></tr>
+                  <tr><td colSpan="5" className="p-8 text-center text-gray-400">Presupuesto vacío. Ve al catálogo para añadir productos.</td></tr>
               ) : (
                   items.map((item, index) => (
                     <tr key={index}>
@@ -377,7 +290,7 @@ const Quotes = () => {
                         <input type="number" min="1" className="w-20 border rounded p-1 text-center" value={item.cantidad} onChange={(e) => handleUpdate(index, 'cantidad', e.target.value)} />
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <input type="number" step="0.01" className="w-24 border-2 border-orange-100 rounded p-1 text-center font-bold text-gray-800 outline-none" placeholder="0.00" value={item.precio} onChange={(e) => handleUpdate(index, 'precio', e.target.value)} />
+                        <input type="number" step="0.01" className="w-24 border-2 border-orange-100 rounded p-1 text-center font-bold text-gray-800 outline-none" value={item.precio} onChange={(e) => handleUpdate(index, 'precio', e.target.value)} />
                       </td>
                       <td className="px-6 py-4 text-right font-bold text-gray-700">
                         {formatoMoneda((parseFloat(item.precio)||0) * (parseInt(item.cantidad)||0))}
@@ -396,7 +309,6 @@ const Quotes = () => {
         </div>
       </div>
 
-      {/* TOTALES */}
       <div className="w-full lg:w-96 bg-slate-900 text-white p-8 flex flex-col justify-between h-auto lg:h-screen sticky top-0">
         <div>
           <h2 className="text-xl font-bold text-orange-500 mb-6">Resumen Económico</h2>
