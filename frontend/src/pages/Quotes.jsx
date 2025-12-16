@@ -4,29 +4,26 @@ import { Trash2, Save, Plus, FileText, User } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// --- 1. IMPORTAR TOAST ---
+import toast from 'react-hot-toast';
+
 const Quotes = () => {
-  // --- ESTADOS Y HOOKS ---
   const navigate = useNavigate();
   const { id } = useParams(); 
-
-  // --- 🔒 SEGURIDAD ---
   const userId = parseInt(localStorage.getItem('userId') || '1');
   const userRole = localStorage.getItem('userRole') || 'admin';
-
   const [isEditing, setIsEditing] = useState(false); 
   
-  // INICIALIZACIÓN: Solo leemos del localStorage si NO hay ID (es decir, si es NUEVO)
   const [items, setItems] = useState(() => {
     if (!id) { 
         const savedItems = localStorage.getItem('quoteItems');
         return savedItems ? JSON.parse(savedItems) : [];
     }
-    return []; // Si estamos editando (hay id), empezamos vacíos hasta que cargue la API
+    return []; 
   });
   
   const [availableClients, setAvailableClients] = useState([]);
   
-  // Igual para el cliente: solo recuperamos borrador si es nuevo
   const [selectedClientId, setSelectedClientId] = useState(() => {
       if (!id) return localStorage.getItem('quoteClient') || '';
       return '';
@@ -34,22 +31,14 @@ const Quotes = () => {
 
   const [loading, setLoading] = useState(true);
 
-  // --- 🔥 1. PERSISTENCIA INTELIGENTE (LA CLAVE DEL ARREGLO) ---
-  // Solo guardamos en localStorage si estamos creando uno NUEVO (!id).
-  // Si estamos editando, NO sobrescribimos el borrador del "Nuevo Presupuesto".
   useEffect(() => {
-    if (!id) {
-        localStorage.setItem('quoteClient', selectedClientId);
-    }
+    if (!id) localStorage.setItem('quoteClient', selectedClientId);
   }, [selectedClientId, id]);
 
   useEffect(() => {
-    if (!id) {
-        localStorage.setItem('quoteItems', JSON.stringify(items));
-    }
+    if (!id) localStorage.setItem('quoteItems', JSON.stringify(items));
   }, [items, id]);
 
-  // --- 2. CARGA DE DATOS PARA EDITAR ---
   const cargarPresupuestoParaEditar = async (idPresupuesto) => {
     try {
         const token = localStorage.getItem('token');
@@ -59,9 +48,7 @@ const Quotes = () => {
         
         if (response.ok) {
             const data = await response.json();
-            
             setSelectedClientId(data.id_cliente);
-            
             const itemsFormateados = data.lineas.map(linea => ({
                 id_articulo: linea.id_articulo,
                 nombre: linea.descripcion,      
@@ -70,16 +57,14 @@ const Quotes = () => {
                 precio: linea.precio_unitario,
                 familia: linea.familia || ''
             }));
-            
             setItems(itemsFormateados);
         }
     } catch (error) {
         console.error("Error al cargar presupuesto:", error);
-        alert("Error al cargar los datos para editar.");
+        toast.error("Error al cargar los datos para editar"); // CAMBIO
     }
   };
 
-  // --- 3. CARGA INICIAL (Clientes y Lógica de Edición) ---
   useEffect(() => {
     async function fetchClients() {
         try {
@@ -96,6 +81,7 @@ const Quotes = () => {
             }
         } catch (error) {
             console.error("Error conexión clientes:", error);
+            toast.error("No se pudieron cargar los clientes"); // CAMBIO
         } finally {
             setLoading(false);
         }
@@ -103,17 +89,12 @@ const Quotes = () => {
     
     fetchClients();
 
-    // Gestión de Edición
     if (id) {
         setIsEditing(true);
-        // Limpiamos cualquier rastro de localStorage visualmente
-        // y cargamos los datos reales de la base de datos
         cargarPresupuestoParaEditar(id);
     } 
   }, [id, userRole, userId]);
 
-
-  // --- FORMATO Y CÁLCULOS ---
   const formatoMoneda = (numero) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency', currency: 'EUR', minimumFractionDigits: 2
@@ -124,69 +105,80 @@ const Quotes = () => {
   const iva = baseImponible * 0.21;
   const total = baseImponible + iva; 
 
-  // --- GUARDAR (LIMPIEZA TOTAL AL FINALIZAR) ---
   const handleSaveQuote = async () => {
-    if (!selectedClientId) return alert("⚠️ Selecciona un cliente primero.");
+    // --- CAMBIO: ALERTA ROJA ---
+    if (!selectedClientId) return toast.error("⚠️ Selecciona un cliente primero");
 
     try {
         const token = localStorage.getItem('token');
         
-        const budgetData = {
-            id_cliente: parseInt(selectedClientId),
-            id_comercial_creador: userId, 
-            estado: "PENDIENTE",
-            fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            total: total,
-            lineas: items.map(item => ({
-                id_articulo: item.id_articulo || item.id, 
-                cantidad: parseInt(item.cantidad),
-                precio_unitario: parseFloat(item.precio),
-                descripcion: item.descripcion || item.nombre || "Material cerámico" 
-            }))
-        };
+        // Promesa de carga (Muestra "Guardando..." mientras espera)
+        const savingPromise = new Promise(async (resolve, reject) => {
+            const budgetData = {
+                id_cliente: parseInt(selectedClientId),
+                id_comercial_creador: userId, 
+                estado: "PENDIENTE",
+                fecha_validez: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                total: total,
+                lineas: items.map(item => ({
+                    id_articulo: item.id_articulo || item.id, 
+                    cantidad: parseInt(item.cantidad),
+                    precio_unitario: parseFloat(item.precio),
+                    descripcion: item.descripcion || item.nombre || "Material cerámico" 
+                }))
+            };
 
-        const url = isEditing 
-            ? `http://localhost:8000/v1/presupuestos/${id}` 
-            : 'http://localhost:8000/v1/presupuestos/';
-        const method = isEditing ? 'PUT' : 'POST';
+            const url = isEditing 
+                ? `http://localhost:8000/v1/presupuestos/${id}` 
+                : 'http://localhost:8000/v1/presupuestos/';
+            const method = isEditing ? 'PUT' : 'POST';
 
-        const response = await fetch(url, {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(budgetData)
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(budgetData)
+            });
+
+            if (response.ok) {
+                resolve();
+            } else {
+                const errorData = await response.json();
+                reject(errorData.detail?.[0]?.msg || 'Error desconocido');
+            }
         });
 
-        if (response.ok) {
-            alert(isEditing ? "✅ Presupuesto actualizado" : "✅ Presupuesto creado y enviado a pendientes");
-            
-            // --- 🧹 LIMPIEZA PROFUNDA ---
-            // Borramos la memoria del navegador para que el próximo sea nuevo de verdad
-            localStorage.removeItem('quoteItems');
-            localStorage.removeItem('quoteClient'); 
-            
-            // Limpiamos el estado local
-            setItems([]);
-            setSelectedClientId(''); 
-            setIsEditing(false);
-            
-            // Redirigimos al Dashboard (donde se verá como PENDIENTE)
-            navigate('/dashboard');
-        } else {
-            const errorData = await response.json();
-            alert(`❌ Error: ${errorData.detail?.[0]?.msg || 'Revisa los datos'}`);
-        }
+        // --- CAMBIO: TOAST CON PROMESA ---
+        // Esto muestra: Cargando -> Éxito (Verde) o Error (Rojo) automáticamente
+        await toast.promise(savingPromise, {
+            loading: 'Guardando presupuesto...',
+            success: isEditing ? 'Presupuesto actualizado correctamente' : 'Presupuesto creado con éxito',
+            error: (err) => `Error: ${err}`
+        });
+
+        // Si todo fue bien, limpiamos y redirigimos
+        localStorage.removeItem('quoteItems');
+        localStorage.removeItem('quoteClient'); 
+        setItems([]);
+        setSelectedClientId(''); 
+        setIsEditing(false);
+        navigate('/dashboard');
+
     } catch (error) {
         console.error(error);
-        alert("Error de conexión");
+        // El toast.promise ya maneja el error visualmente, pero por si acaso:
+        // toast.error("Error de conexión");
     }
   };
 
-  // --- PDF ---
   const generatePDFOnly = () => {
-    if (!selectedClientId) return alert("Selecciona cliente.");
+    if (!selectedClientId) return toast.error("Selecciona un cliente para el PDF"); // CAMBIO
+    
+    // Notificación de que se está generando
+    const toastId = toast.loading("Generando PDF...");
+
     const client = availableClients.find(c => c.id_cliente == selectedClientId) || {};
     const doc = new jsPDF();
     const brandColor = [45, 55, 72]; 
@@ -194,6 +186,7 @@ const Quotes = () => {
     logo.src = '/logo-mora.png'; 
     
     logo.onload = () => {
+        // ... (código del PDF igual) ...
         doc.setFillColor(...brandColor); doc.rect(0, 0, 210, 40, 'F'); 
         doc.addImage(logo, 'PNG', 14, 10, 50, 20); 
         
@@ -231,8 +224,15 @@ const Quotes = () => {
         doc.text(`TOTAL`, 160, finalY + 20, { align: 'right' }); doc.text(`${formatoMoneda(total)}`, 200, finalY + 20, { align: 'right' });
 
         doc.save(`Presupuesto_${isEditing ? id : 'Nuevo'}.pdf`);
+        
+        // Quitamos el mensaje de "Cargando" y ponemos éxito
+        toast.dismiss(toastId);
+        toast.success("PDF descargado");
     };
-    logo.onerror = () => { alert("⚠️ Logo no encontrado. Generando sin logo."); };
+    logo.onerror = () => { 
+        toast.error("Logo no encontrado. Generando sin logo."); // CAMBIO
+        toast.dismiss(toastId);
+    };
   };
   
   const handleDelete = (idx) => setItems(items.filter((_, i) => i !== idx));
