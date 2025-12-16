@@ -1,8 +1,12 @@
 import sys
 import os
+from pathlib import Path
 
-# Ajuste de rutas para que Python encuentre la carpeta 'app'
-sys.path.append(os.getcwd())
+
+# Esto calcula automáticamente dónde está la carpeta raíz del proyecto
+# sin importar desde dónde ejecutes el comando.
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
 
 from sqlmodel import Session, SQLModel, select
 from app.db.session import engine
