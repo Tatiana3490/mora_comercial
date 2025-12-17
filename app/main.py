@@ -10,8 +10,7 @@ from app.utils.security import hash_password
 from fastapi.staticfiles import StaticFiles
 from app.api.v1.endpoints import notas
 
-# 1. IMPORTANTE: Importamos el router principal que creaste antes
-# (Asegúrate de que este archivo existe en app/api/v1/api.py)
+
 from app.api.v1.api import api_router 
 
 app = FastAPI(title="Mora Comercial API")

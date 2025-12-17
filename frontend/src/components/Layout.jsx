@@ -16,7 +16,7 @@ export default function Layout() {
   // Datos usuario
   const userEmail = localStorage.getItem('userEmail') || 'usuario@mora.com';
   const userInitials = userEmail.substring(0, 2).toUpperCase();
-  // 🔥 NUEVO: Leemos el rol y lo pasamos a minúsculas para comparar seguro
+  // Leemos el rol y lo pasamos a minúsculas para comparar seguro
   const userRole = (localStorage.getItem('userRole') || '').toLowerCase();
 
   const formatoMoneda = (cantidad) => {
@@ -135,6 +135,13 @@ export default function Layout() {
           <Link to="/clientes" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/clientes')}>
             <Users size={20} /> Clientes
           </Link>
+
+          {/* 5. EQUIPO/USUARIOS (Solo visible para ADMIN) */}
+          {userRole === 'admin' && (
+            <Link to="/usuarios" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/usuarios')}>
+              <Users size={20} /> Equipo
+            </Link>
+          )}
         </nav>
 
         {/* --- BOTÓN DE SALIDA --- */}

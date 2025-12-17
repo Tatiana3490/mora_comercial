@@ -14,5 +14,6 @@ api_router.include_router(client.router, prefix="/clientes")
 api_router.include_router(articulo.router, prefix="/articulos")
 api_router.include_router(presupuesto.router, prefix="/presupuestos")
 api_router.include_router(dashboard.router, prefix="/dashboard")
-api_router.include_router(notas.router, prefix="/notas")  
+api_router.include_router(notas.router, prefix="/notas") 
+ 
 
