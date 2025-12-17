@@ -8,6 +8,7 @@ from app.db.session import get_session
 from app.models.user import User
 from app.utils.security import hash_password
 from fastapi.staticfiles import StaticFiles
+from app.api.v1.endpoints import notas
 
 # 1. IMPORTANTE: Importamos el router principal que creaste antes
 # (Asegúrate de que este archivo existe en app/api/v1/api.py)

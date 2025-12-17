@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 # Importar los routers individuales que definen los endpoints
-from app.api.v1.endpoints import user, client, articulo, presupuesto, auth, audit, dashboard
+from app.api.v1.endpoints import notas, user, client, articulo, presupuesto, auth, audit, dashboard
 
 # Router principal
 api_router = APIRouter(prefix="/v1")
@@ -14,4 +14,5 @@ api_router.include_router(client.router, prefix="/clientes")
 api_router.include_router(articulo.router, prefix="/articulos")
 api_router.include_router(presupuesto.router, prefix="/presupuestos")
 api_router.include_router(dashboard.router, prefix="/dashboard")
+api_router.include_router(notas.router, prefix="/notas")  
 

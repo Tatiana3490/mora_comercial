@@ -12,6 +12,7 @@ from sqlmodel import Session, SQLModel, select
 from app.db.session import engine
 from app.models.user import User
 from app.models.client import Client
+from app.models.nota import Nota
 from app.utils.security import hash_password
 
 def create_initial_data():

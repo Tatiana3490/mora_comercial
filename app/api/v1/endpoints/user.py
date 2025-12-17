@@ -5,7 +5,6 @@ from app.crud import user_crud
 from app.crud import audit_crud
 from app.models.user import UserCreate, UserRead, UserUpdate, ROL_USUARIO
 from app.db.session import get_session
-# ### CAMBIO: Importamos la función para hashear passwords
 from app.utils.security import get_current_user, get_password_hash
 from app.core.rate_limiting import rate_limit, RATE_LIMITS
 

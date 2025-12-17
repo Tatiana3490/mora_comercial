@@ -88,7 +88,7 @@ def get_current_user(
         raise credentials_exception
     
     # Buscamos al usuario por ID
-    user = db.query(User).filter(User.id == token_sub).first()
+    user = db.query(User).filter(User.id_usuario == token_sub).first()
     
     if user is None:
         raise credentials_exception

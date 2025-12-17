@@ -8,6 +8,8 @@ from app.db import get_session
 from app.models.client import Client
 from app.models.presupuesto import Presupuesto
 
+router = APIRouter(tags=["Dashboard"])
+
 # 1. Esquema de Respuesta
 class DashboardStats(SQLModel):
     ventas_mensuales: float = 0.0 
