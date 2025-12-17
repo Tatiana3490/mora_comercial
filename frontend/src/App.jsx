@@ -55,8 +55,6 @@ function App() {
                 <Route path="/clientes" element={<Clients />} />
                 <Route path="perfil" element={<Profile />} />
                 <Route path="usuarios" element={<Users />} />
-                
-                {/* Ruta para editar presupuestos */}
                 <Route path="/presupuestos/editar/:id" element={<Quotes />} />
             </Route>
         </Route>
