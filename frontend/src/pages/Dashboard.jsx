@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, Trash2, Eye, Check, X } from 'lucide-react';
+import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, Trash2, Eye, Check, X, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -86,20 +87,65 @@ const Dashboard = () => {
     }
   };
 
-  // --- ✏️ EDIT / VIEW ---
+  // --- ✏️ EDIT / VIEW MODIFICADO CON TOAST ---
   const handleEdit = (id, currentStatus) => {
-    // LÓGICA DE AVISO:
-    // Si el usuario NO es admin (es comercial) y el presupuesto está ACEPTADO
+    
+    // CASO 1: Si es Comercial y el presupuesto está ACEPTADO -> Mostrar Toast de Confirmación
     if (userRole !== 'admin' && currentStatus === 'ACEPTADO') {
-        const confirmar = window.confirm(
-            "⚠️ ADVERTENCIA:\n\nEste presupuesto ya está ACEPTADO.\nSi realizas cualquier modificación y guardas, el estado volverá a PENDIENTE y requerirá nueva aprobación.\n\n¿Deseas continuar?"
-        );
-        
-        // Si el usuario dice "Cancelar", no hacemos nada.
-        if (!confirmar) return;
+      
+      // Creamos un toast personalizado que NO se cierra solo (o dura mucho)
+      toast((t) => (
+        <div className="flex flex-col w-full max-w-sm">
+          {/* Cabecera del aviso */}
+          <div className="flex items-start gap-3">
+             <div className="bg-orange-100 text-orange-600 p-2 rounded-full">
+                <AlertTriangle size={20} />
+             </div>
+             <div>
+               <p className="font-bold text-gray-800">¿Editar presupuesto aceptado?</p>
+               <p className="text-sm text-gray-500 mt-1">
+                 El estado cambiará a <span className="font-bold text-orange-600">PENDIENTE</span> y necesitará nueva aprobación.
+               </p>
+             </div>
+          </div>
+
+          {/* Botones de Acción */}
+          <div className="flex gap-2 mt-4 justify-end border-t pt-3 border-gray-100">
+            <button 
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition"
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={() => {
+                toast.dismiss(t.id);
+                // --- EJECUTAMOS LA NAVEGACIÓN AQUÍ DENTRO ---
+                localStorage.removeItem('quoteItems');
+                localStorage.removeItem('quoteClient');
+                navigate(`/presupuestos/editar/${id}`);
+              }}
+              className="px-3 py-1.5 text-sm bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700 transition"
+            >
+              Sí, editar
+            </button>
+          </div>
+        </div>
+      ), {
+        duration: 8000, // Dura 8 segundos, tiempo suficiente para decidir
+        position: 'top-center',
+        style: {
+           background: '#fff',
+           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+           padding: '16px',
+           borderRadius: '12px'
+        }
+      });
+
+      return; // 🛑 IMPORTANTE: Detenemos la función aquí para esperar el click
     }
 
-    // Si pasa la validación (o es Admin, o no estaba aceptado), navega.
+    // CASO 2: Navegación normal (Admin o no aceptado)
     localStorage.removeItem('quoteItems');
     localStorage.removeItem('quoteClient');
     navigate(`/presupuestos/editar/${id}`);

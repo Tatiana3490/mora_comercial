@@ -7,10 +7,10 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const navigate = useNavigate();
 
   // --- 🔥 FUNCIÓN AUXILIAR PARA LEER EL TOKEN (JWT) ---
-  // Esto decodifica el token para ver qué hay dentro (rol, id, etc.)
   const parseJwt = (token) => {
     try {
       return JSON.parse(atob(token.split('.')[1]));
@@ -40,25 +40,35 @@ const Login = () => {
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('userEmail', email);
         
-        // --- 🔥 AQUÍ ESTÁ EL CAMBIO IMPORTANTE ---
-        // En lugar de inventarnos que es admin, leemos el token real
+        // 2. Analizamos el token
         const decodedToken = parseJwt(data.access_token);
-        
-        console.log("Datos dentro del token:", decodedToken); // Míralo en la consola (F12)
+        console.log("Datos dentro del token:", decodedToken); 
 
-        // IMPORTANTE: Asegúrate de que en tu backend la propiedad se llame 'role' o 'rol'.
-        // Si en la consola ves 'roles' o 'scope', cambia 'decodedToken.role' por lo que corresponda.
-        const userRole = decodedToken.role || 'comercial'; // Fallback por si falla
-        const userId = decodedToken.id || decodedToken.sub || '0'; // Fallback
+        // --- 🔥 LÓGICA DE ROLES CORREGIDA ---
+        let userRole = decodedToken.role; // Intentamos leer el rol si existe
+
+        if (!userRole) {
+            // SI NO HAY ROL: Miramos el ID (sub). 
+            // Asumimos que el ID "1" es el Super Admin.
+            if (decodedToken.sub === "1" || decodedToken.id === 1) {
+                userRole = 'admin';
+            } else {
+                userRole = 'comercial';
+            }
+        }
+        
+        // Usamos el 'sub' como ID de usuario
+        const userId = decodedToken.sub || decodedToken.id || '0'; 
 
         localStorage.setItem('userRole', userRole); 
         localStorage.setItem('userId', userId);
 
-        toast.success(`¡Bienvenido ${userRole}!`);
+        toast.success(`¡Bienvenido ${userRole.toUpperCase()}!`);
         
-        // Redirigimos al Dashboard
+        // Redirigimos
         window.location.href = '/dashboard'; 
       } else {
+        // --- ESTO ES LO QUE FALTABA ---
         toast.error("Usuario o contraseña incorrectos");
       }
     } catch (error) {
@@ -67,7 +77,7 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }; // <--- FALTABA CERRAR LA FUNCIÓN AQUÍ
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">

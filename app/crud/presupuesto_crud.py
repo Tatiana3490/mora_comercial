@@ -242,17 +242,39 @@ def update_presupuesto(
 ) -> Presupuesto:
     """
     Actualiza un presupuesto existente.
-    Si vienen 'lineas' en la actualización:
-    1. Borra las antiguas.
-    2. Crea las nuevas.
     """
-    # 1. Actualizar datos de cabecera (excluyendo líneas para que no falle aquí)
+    
+    # Convertimos los datos de entrada a diccionario
     data = presupuesto_in.model_dump(exclude_unset=True, exclude={"lineas"})
 
+    # ---------------------------------------------------------------
+    # 1. LÓGICA DE ESTADOS (CORREGIDA)
+    # ---------------------------------------------------------------
+    
+    # CASO A: El presupuesto YA ESTABA ACEPTADO en la Base de Datos
+    # Significa que alguien lo está editando después de aprobarse.
+    if presupuesto.estado == "ACEPTADO":
+        # Forzamos vuelta a Pendiente
+        presupuesto.estado = "PENDIENTE"
+        # Y borramos cualquier intento de mantenerlo aceptado desde fuera
+        if "estado" in data:
+            del data["estado"]
+
+    # CASO B: El presupuesto ESTÁ PENDIENTE (o Rechazado)
+    else:
+        # Aquí NO hacemos nada especial.
+        # Si el Admin envía estado="ACEPTADO", PERMITIMOS que pase.
+        pass
+
+    # ---------------------------------------------------------------
+    # 2. APLICAR CAMBIOS
+    # ---------------------------------------------------------------
     for key, value in data.items():
         setattr(presupuesto, key, value)
 
-    # 2. Si nos envían nuevas líneas, reemplazamos las viejas
+    # ---------------------------------------------------------------
+    # 3. GESTIÓN DE LÍNEAS
+    # ---------------------------------------------------------------
     if presupuesto_in.lineas is not None:
         # A) Borrar líneas existentes
         for linea_antigua in list(presupuesto.lineas):
@@ -261,7 +283,7 @@ def update_presupuesto(
         # B) Crear líneas nuevas
         for linea_in in presupuesto_in.lineas:
             nueva_linea = PresupuestoLinea(
-                id_presupuesto=presupuesto.id, # Enlazamos con el presupuesto actual
+                id_presupuesto=presupuesto.id,
                 id_articulo=linea_in.id_articulo,
                 descripcion=linea_in.descripcion,
                 cantidad=linea_in.cantidad,
@@ -274,25 +296,3 @@ def update_presupuesto(
     session.commit()
     session.refresh(presupuesto)
     return presupuesto
-
-
-# ============================
-#    DELETE OPERATION
-# ============================
-
-def delete_presupuesto(
-    session: Session,
-    presupuesto: Presupuesto,
-) -> None:
-    """
-    Elimina un presupuesto y sus líneas asociadas.
-
-    Nota: ya tienes cascade="all, delete-orphan" en el modelo,
-    pero este borrado explícito de líneas es una capa extra de seguridad.
-    """
-    # Borrar líneas explícitamente (por si alguna vez falla el cascade)
-    for linea in list(presupuesto.lineas):
-        session.delete(linea)
-
-    session.delete(presupuesto)
-    session.commit()
