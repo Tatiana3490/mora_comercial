@@ -271,7 +271,6 @@ const Dashboard = () => {
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <TrendingUp size={18} className="text-gray-400"/> Últimos Presupuestos
             </h3>
-            <button onClick={() => navigate('/presupuestos')} className="text-sm text-orange-600 font-medium hover:underline">Ver todos</button>
         </div>
         
         <div className="overflow-x-auto">
