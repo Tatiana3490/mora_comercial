@@ -16,6 +16,8 @@ export default function Layout() {
   // Datos usuario
   const userEmail = localStorage.getItem('userEmail') || 'usuario@mora.com';
   const userInitials = userEmail.substring(0, 2).toUpperCase();
+  // 🔥 NUEVO: Leemos el rol y lo pasamos a minúsculas para comparar seguro
+  const userRole = (localStorage.getItem('userRole') || '').toLowerCase();
 
   const formatoMoneda = (cantidad) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cantidad);
@@ -67,22 +69,14 @@ export default function Layout() {
   }, []);
 
   const getLinkClass = (path) => {
-    // Añadimos z-50 y relative para asegurar que nada tape los enlaces
     const baseClass = "flex items-center gap-3 rounded-lg px-4 py-3 transition-colors cursor-pointer relative z-50"; 
     return location.pathname === path 
       ? `${baseClass} bg-mora-orange text-white` 
       : `${baseClass} text-gray-400 hover:bg-white/10 hover:text-white`;
   };
 
-  // --- FUNCIÓN DE SALIDA NUCLEAR (SOLUCIÓN AL BLOQUEO) ---
   const handleLogout = () => {
-    console.log("Cerrando sesión..."); // Verás esto en la consola si funciona el clic
-    
-    // 1. Limpieza total
     localStorage.clear(); 
-    
-    // 2. Redirección FORZADA (Esto evita la pantalla blanca)
-    // No usamos 'navigate', obligamos al navegador a recargar
     window.location.href = '/login';
   };
 
@@ -118,27 +112,38 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4 relative z-50">
+          {/* 1. INICIO (Visible para todos) */}
           <Link to="/dashboard" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/dashboard')}>
             <LayoutGrid size={20} /> Inicio
           </Link>
-          <Link to="/catalogo" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/catalogo')}>
-            <BookOpen size={20} /> Catálogo
-          </Link>
-          <Link to="/presupuestos" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/presupuestos')}>
-            <Calculator size={20} /> Presupuestos
-          </Link>
+
+          {/* 2. CATÁLOGO (Solo si NO es admin) */}
+          {userRole !== 'admin' && (
+              <Link to="/catalogo" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/catalogo')}>
+                <BookOpen size={20} /> Catálogo
+              </Link>
+          )}
+
+          {/* 3. PRESUPUESTOS (Solo si NO es admin) */}
+          {userRole !== 'admin' && (
+              <Link to="/presupuestos" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/presupuestos')}>
+                <Calculator size={20} /> Presupuestos
+              </Link>
+          )}
+
+          {/* 4. CLIENTES (Visible para todos) */}
           <Link to="/clientes" onClick={() => setIsSidebarOpen(false)} className={getLinkClass('/clientes')}>
             <Users size={20} /> Clientes
           </Link>
         </nav>
 
-        {/* --- BOTÓN DE SALIDA (NATIVO) --- */}
+        {/* --- BOTÓN DE SALIDA --- */}
         <div className="p-4 border-t border-gray-700 relative z-50">
           <button 
             type="button"
             onClick={handleLogout} 
             className="flex w-full items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
-            style={{ position: 'relative', zIndex: 100 }} // Forzamos que esté por encima de todo
+            style={{ position: 'relative', zIndex: 100 }} 
           >
             <LogOut size={20} /> Cerrar Sesión
           </button>
@@ -228,7 +233,6 @@ export default function Layout() {
                                 <User size={16} /> Mi Perfil
                             </button>
                             
-                            {/* BOTÓN SALIDA MENÚ PERFIL (Opción extra por si el otro falla) */}
                             <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer z-50 relative">
                                 <LogOut size={16} /> Cerrar Sesión
                             </button>
