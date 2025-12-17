@@ -87,7 +87,19 @@ const Dashboard = () => {
   };
 
   // --- ✏️ EDIT / VIEW ---
-  const handleEdit = (id) => {
+  const handleEdit = (id, currentStatus) => {
+    // LÓGICA DE AVISO:
+    // Si el usuario NO es admin (es comercial) y el presupuesto está ACEPTADO
+    if (userRole !== 'admin' && currentStatus === 'ACEPTADO') {
+        const confirmar = window.confirm(
+            "⚠️ ADVERTENCIA:\n\nEste presupuesto ya está ACEPTADO.\nSi realizas cualquier modificación y guardas, el estado volverá a PENDIENTE y requerirá nueva aprobación.\n\n¿Deseas continuar?"
+        );
+        
+        // Si el usuario dice "Cancelar", no hacemos nada.
+        if (!confirmar) return;
+    }
+
+    // Si pasa la validación (o es Admin, o no estaba aceptado), navega.
     localStorage.removeItem('quoteItems');
     localStorage.removeItem('quoteClient');
     navigate(`/presupuestos/editar/${id}`);
@@ -286,7 +298,7 @@ const Dashboard = () => {
                                     </button>
 
                                     <button 
-                                        onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
+                                        onClick={() => handleEdit(quote.id_presupuesto || quote.id, quote.estado)}
                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                                         title="Editar"
                                     >

@@ -9,12 +9,21 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  // --- 🔥 FUNCIÓN AUXILIAR PARA LEER EL TOKEN (JWT) ---
+  // Esto decodifica el token para ver qué hay dentro (rol, id, etc.)
+  const parseJwt = (token) => {
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch (e) {
+      return null;
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Petición al backend real
       const response = await fetch('http://localhost:8000/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -27,16 +36,25 @@ const Login = () => {
       if (response.ok) {
         const data = await response.json();
         
-        // Guardamos los datos
+        // 1. Guardamos el token
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('userEmail', email);
         
-        // Decodificamos rol y ID (simulado o desde token si tuvieras librería jwt-decode)
-        // Por ahora asumimos admin para que funcione, o ajusta según tu backend
-        localStorage.setItem('userRole', 'admin'); 
-        localStorage.setItem('userId', '1');
+        // --- 🔥 AQUÍ ESTÁ EL CAMBIO IMPORTANTE ---
+        // En lugar de inventarnos que es admin, leemos el token real
+        const decodedToken = parseJwt(data.access_token);
+        
+        console.log("Datos dentro del token:", decodedToken); // Míralo en la consola (F12)
 
-        toast.success("¡Bienvenido!");
+        // IMPORTANTE: Asegúrate de que en tu backend la propiedad se llame 'role' o 'rol'.
+        // Si en la consola ves 'roles' o 'scope', cambia 'decodedToken.role' por lo que corresponda.
+        const userRole = decodedToken.role || 'comercial'; // Fallback por si falla
+        const userId = decodedToken.id || decodedToken.sub || '0'; // Fallback
+
+        localStorage.setItem('userRole', userRole); 
+        localStorage.setItem('userId', userId);
+
+        toast.success(`¡Bienvenido ${userRole}!`);
         
         // Redirigimos al Dashboard
         window.location.href = '/dashboard'; 
@@ -52,12 +70,12 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-mora-dark flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
         
         {/* LOGO */}
         <div className="flex justify-center mb-8">
-          <div className="h-16 w-16 bg-mora-orange rounded flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+          <div className="h-16 w-16 bg-orange-600 rounded flex items-center justify-center text-white text-2xl font-bold shadow-lg">
             CM
           </div>
         </div>
