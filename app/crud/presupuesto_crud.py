@@ -296,3 +296,31 @@ def update_presupuesto(
     session.commit()
     session.refresh(presupuesto)
     return presupuesto
+
+# ============================
+#    DELETE OPERATION
+# ============================
+
+def delete_presupuesto(
+    session: Session,
+    presupuesto_id: int,
+) -> Optional[Presupuesto]:
+    """
+    Elimina un presupuesto por su ID.
+    Devuelve el presupuesto eliminado o None si no existía.
+    """
+    # 1. Buscamos el presupuesto
+    presupuesto = session.get(Presupuesto, presupuesto_id)
+    
+    # 2. Si no existe, devolvemos None
+    if not presupuesto:
+        return None
+    
+    # 3. Lo borramos
+    session.delete(presupuesto)
+    
+    # 4. Confirmamos cambios en la BD
+    session.commit()
+    
+    # 5. Devolvemos el objeto (útil para logs o confirmaciones)
+    return presupuesto

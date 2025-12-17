@@ -8,6 +8,7 @@ from sqlmodel import Session
 from app.db.session import get_session
 from app.crud import presupuesto_crud
 from app.models.presupuesto import (
+    Presupuesto,
     PresupuestoCompletoCreate,
     PresupuestoCompletoRead,
     PresupuestoUpdate,
@@ -175,31 +176,19 @@ def update_presupuesto(
 # ==================================
 #   ELIMINAR
 # ==================================
-@router.delete(
-    "/{presupuesto_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Eliminar presupuesto",
-)
+@router.delete("/{presupuesto_id}", response_model=Presupuesto) # o el response_model que tengas
 def delete_presupuesto(
-    *,
     presupuesto_id: int,
     session: Session = Depends(get_session),
-) -> None:
-    """
-    Elimina un presupuesto por su ID (cabecera + líneas).
-    """
-    presupuesto_db = presupuesto_crud.get_presupuesto_by_id(
-        session=session,
-        presupuesto_id=presupuesto_id,
+    # ... otras dependencias ...
+):
+    # 👇 AQUÍ ESTÁ EL CAMBIO: Asegúrate de pasar 'presupuesto_id'
+    presupuesto_borrado = presupuesto_crud.delete_presupuesto(
+        session=session, 
+        presupuesto_id=presupuesto_id  # <--- Antes ponía 'presupuesto=...' seguramente
     )
-    if not presupuesto_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Presupuesto no encontrado",
-        )
-
-    presupuesto_crud.delete_presupuesto(
-        session=session,
-        presupuesto=presupuesto_db,
-    )
-    return
+    
+    if not presupuesto_borrado:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+        
+    return presupuesto_borrado

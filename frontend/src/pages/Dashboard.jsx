@@ -3,10 +3,55 @@ import { LayoutGrid, Users, FileText, TrendingUp, DollarSign, Calendar, Pencil, 
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
+// ==========================================
+// COMPONENTE LOCAL: DeleteModal
+// ==========================================
+const DeleteModal = ({ isOpen, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-6 text-center">
+          <div className="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-red-100 mb-4">
+            <AlertTriangle className="h-8 w-8 text-red-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">¿Eliminar presupuesto?</h3>
+          <p className="text-sm text-gray-500 mt-3">
+            Esta acción es permanente y no se podrá recuperar la información. 
+            ¿Estás seguro de que deseas continuar?
+          </p>
+        </div>
+        <div className="bg-gray-50 px-6 py-4 flex justify-center gap-3">
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition shadow-sm"
+          >
+            Sí, eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// COMPONENTE PRINCIPAL: Dashboard
+// ==========================================
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   
+  // Estados para el borrado
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [quoteToDelete, setQuoteToDelete] = useState(null);
+
   // --- 🔒 SECURITY & ROLES ---
   const userRole = localStorage.getItem('userRole') || 'admin'; 
   const userId = parseInt(localStorage.getItem('userId') || '1');
@@ -18,7 +63,7 @@ const Dashboard = () => {
     presupuestosPendientes: 0
   });
   const [recentQuotes, setRecentQuotes] = useState([]);
-  const [clientsMap, setClientsMap] = useState({}); // Stores ID -> Name mapping
+  const [clientsMap, setClientsMap] = useState({}); 
 
   // --- 💶 SPANISH FORMAT ---
   const formatoMoneda = (numero) => {
@@ -29,7 +74,7 @@ const Dashboard = () => {
     }).format(numero);
   };
 
-  // --- 🚦 CHANGE STATUS (Admin Only) ---
+  // --- 🚦 CHANGE STATUS ---
   const handleStatusChange = async (id, newStatus) => {
     try {
       const token = localStorage.getItem('token');
@@ -53,50 +98,50 @@ const Dashboard = () => {
                 presupuestosPendientes: Math.max(0, prev.presupuestosPendientes - 1)
             }));
         }
+        toast.success(`Presupuesto ${newStatus.toLowerCase()}`);
       } else {
-        alert("❌ Error al cambiar el estado del presupuesto.");
+        toast.error("Error al actualizar el estado");
       }
     } catch (error) {
-      console.error(error);
-      alert("Error de conexión al intentar cambiar estado.");
+      toast.error("Error de conexión");
     }
   };
 
-  // --- 🗑️ DELETE QUOTE ---
-  const handleDelete = async (id) => {
-    if (!window.confirm("¿Estás seguro de que quieres eliminar este presupuesto?")) return;
+  // --- 🗑️ LÓGICA DE BORRADO ---
+  const handleDeleteClick = (id) => {
+    setQuoteToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
 
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/v1/presupuestos/${id}`, {
+  const handleConfirmDelete = async () => {
+    if (!quoteToDelete) return;
+    setIsDeleteModalOpen(false);
+
+    const token = localStorage.getItem('token');
+
+    toast.promise(
+      fetch(`http://localhost:8000/v1/presupuestos/${quoteToDelete}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        alert("✅ Presupuesto eliminado");
-        window.location.reload(); 
-      } else {
-        alert("❌ Error al eliminar");
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(async (res) => {
+        if (!res.ok) throw new Error();
+        setRecentQuotes(prev => prev.filter(q => (q.id_presupuesto || q.id) !== quoteToDelete));
+        return "Eliminado";
+      }),
+      {
+        loading: 'Eliminando...',
+        success: <b>Presupuesto eliminado</b>,
+        error: <b>Error al eliminar</b>,
       }
-    } catch (error) {
-      console.error(error);
-      alert("Error de conexión");
-    }
+    );
+    setQuoteToDelete(null);
   };
 
-  // --- ✏️ EDIT / VIEW MODIFICADO CON TOAST ---
+  // --- ✏️ EDIT / VIEW ---
   const handleEdit = (id, currentStatus) => {
-    
-    // CASO 1: Si es Comercial y el presupuesto está ACEPTADO -> Mostrar Toast de Confirmación
     if (userRole !== 'admin' && currentStatus === 'ACEPTADO') {
-      
-      // Creamos un toast personalizado que NO se cierra solo (o dura mucho)
       toast((t) => (
         <div className="flex flex-col w-full max-w-sm">
-          {/* Cabecera del aviso */}
           <div className="flex items-start gap-3">
              <div className="bg-orange-100 text-orange-600 p-2 rounded-full">
                 <AlertTriangle size={20} />
@@ -104,48 +149,30 @@ const Dashboard = () => {
              <div>
                <p className="font-bold text-gray-800">¿Editar presupuesto aceptado?</p>
                <p className="text-sm text-gray-500 mt-1">
-                 El estado cambiará a <span className="font-bold text-orange-600">PENDIENTE</span> y necesitará nueva aprobación.
+                 El estado cambiará a <span className="font-bold text-orange-600">PENDIENTE</span>.
                </p>
              </div>
           </div>
-
-          {/* Botones de Acción */}
           <div className="flex gap-2 mt-4 justify-end border-t pt-3 border-gray-100">
-            <button 
-              onClick={() => toast.dismiss(t.id)}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md transition"
-            >
+            <button onClick={() => toast.dismiss(t.id)} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md">
               Cancelar
             </button>
             <button 
               onClick={() => {
                 toast.dismiss(t.id);
-                // --- EJECUTAMOS LA NAVEGACIÓN AQUÍ DENTRO ---
                 localStorage.removeItem('quoteItems');
                 localStorage.removeItem('quoteClient');
                 navigate(`/presupuestos/editar/${id}`);
               }}
-              className="px-3 py-1.5 text-sm bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700 transition"
+              className="px-3 py-1.5 text-sm bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700"
             >
               Sí, editar
             </button>
           </div>
         </div>
-      ), {
-        duration: 8000, // Dura 8 segundos, tiempo suficiente para decidir
-        position: 'top-center',
-        style: {
-           background: '#fff',
-           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-           padding: '16px',
-           borderRadius: '12px'
-        }
-      });
-
-      return; // 🛑 IMPORTANTE: Detenemos la función aquí para esperar el click
+      ), { duration: 6000 });
+      return;
     }
-
-    // CASO 2: Navegación normal (Admin o no aceptado)
     localStorage.removeItem('quoteItems');
     localStorage.removeItem('quoteClient');
     navigate(`/presupuestos/editar/${id}`);
@@ -158,33 +185,26 @@ const Dashboard = () => {
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        // 1. Load Clients
         const resClients = await fetch('http://localhost:8000/v1/clientes/', { headers });
         let clientsData = resClients.ok ? await resClients.json() : [];
 
-        // Security Filter for Clients
         if (userRole !== 'admin') {
             clientsData = clientsData.filter(c => c.id_comercial_propietario === userId);
         }
 
-        // --- 🔥 CRITICAL FIX: Build the Dictionary ---
         const clientsDictionary = {};
         clientsData.forEach(client => {
-            // Map ID to Name. Adjust property names if your API differs (e.g., id_cliente vs id)
             clientsDictionary[client.id_cliente || client.id] = client.nombre;
         });
-        setClientsMap(clientsDictionary); // Update state
+        setClientsMap(clientsDictionary); 
 
-        // 2. Load Quotes
         const resQuotes = await fetch('http://localhost:8000/v1/presupuestos/', { headers });
         let quotesData = resQuotes.ok ? await resQuotes.json() : [];
 
-        // Security Filter for Quotes
         if (userRole !== 'admin') {
             quotesData = quotesData.filter(q => q.id_comercial_creador === userId);
         }
 
-        // Calculate Stats
         const totalDinero = quotesData.reduce((acc, q) => acc + (q.total_neto || 0), 0);
         const pendientes = quotesData.filter(q => q.estado === 'PENDIENTE').length;
 
@@ -194,23 +214,18 @@ const Dashboard = () => {
           presupuestosPendientes: pendientes
         });
 
-        // Show last 10
         const ultimos = [...quotesData].reverse().slice(0, 10);
         setRecentQuotes(ultimos);
-
       } catch (error) {
-        console.error("Error cargando dashboard:", error);
+        console.error("Error:", error);
       } finally {
         setLoading(false);
       }
     }
-
     loadDashboardData();
   }, [userRole, userId]);
 
-  if (loading) {
-    return <div className="p-10 text-center text-gray-500">Cargando panel de control...</div>;
-  }
+  if (loading) return <div className="p-10 text-center text-gray-500">Cargando...</div>;
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
@@ -220,7 +235,6 @@ const Dashboard = () => {
            <h1 className="text-3xl font-bold text-gray-900">Panel de Control</h1>
            <p className="text-gray-500">
              Bienvenido, <span className="font-semibold text-orange-600 capitalize">{userRole}</span>.
-             Visión general del negocio.
            </p>
         </div>
         <div className="bg-white px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-gray-600 flex items-center gap-2">
@@ -231,7 +245,6 @@ const Dashboard = () => {
 
       {/* --- CARDS --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Volume */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Volumen {userRole === 'admin' ? 'Total' : 'Mío'}</p>
@@ -241,8 +254,6 @@ const Dashboard = () => {
                 <DollarSign size={24} />
             </div>
         </div>
-
-        {/* Clients */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
                 <p className="text-sm font-medium text-gray-500 mb-1">Clientes Activos</p>
@@ -252,11 +263,9 @@ const Dashboard = () => {
                 <Users size={24} />
             </div>
         </div>
-
-        {/* Pending */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Pendientes de Aprobación</p>
+                <p className="text-sm font-medium text-gray-500 mb-1">Pendientes</p>
                 <h2 className="text-3xl font-bold text-gray-900">{stats.presupuestosPendientes}</h2>
             </div>
             <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
@@ -267,7 +276,7 @@ const Dashboard = () => {
 
       {/* --- TABLE --- */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <div className="px-6 py-4 border-b border-gray-100">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                 <TrendingUp size={18} className="text-gray-400"/> Últimos Presupuestos
             </h3>
@@ -280,95 +289,54 @@ const Dashboard = () => {
                         <th className="px-6 py-3 font-semibold">Cliente</th>
                         <th className="px-6 py-3 font-semibold">Fecha</th>
                         <th className="px-6 py-3 font-semibold">Estado</th>
-                        <th className="px-6 py-3 font-semibold text-right">Importe Total</th>
+                        <th className="px-6 py-3 font-semibold text-right">Total</th>
                         <th className="px-6 py-3 font-semibold text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                    {recentQuotes.length === 0 ? (
-                        <tr>
-                            <td colSpan="5" className="px-6 py-8 text-center text-gray-400">
-                                No hay actividad reciente.
+                    {recentQuotes.map((quote) => (
+                        <tr key={quote.id_presupuesto || quote.id} className="hover:bg-gray-50 transition">
+                            <td className="px-6 py-4 font-medium text-gray-900">
+                                {clientsMap[quote.id_cliente] || `ID: ${quote.id_cliente}`}
+                            </td>
+                           <td className="px-6 py-4 text-sm text-gray-500">
+                                {quote.fecha_presupuesto ? new Date(quote.fecha_presupuesto).toLocaleDateString('es-ES') : '-'}
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                                    ${quote.estado === 'ACEPTADO' ? 'bg-green-100 text-green-700' : 
+                                      quote.estado === 'RECHAZADO' ? 'bg-red-100 text-red-700' : 
+                                      'bg-yellow-100 text-yellow-700'}`}>
+                                    {quote.estado}
+                                </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-bold text-gray-700">
+                                {formatoMoneda(quote.total_neto)}
+                            </td>
+                            <td className="px-6 py-4 text-center flex justify-center gap-1">
+                                {userRole === 'admin' && quote.estado === 'PENDIENTE' && (
+                                    <>
+                                        <button onClick={() => handleStatusChange(quote.id_presupuesto || quote.id, 'ACEPTADO')} className="p-2 text-green-600 hover:bg-green-100 rounded-full transition"><Check size={18}/></button>
+                                        <button onClick={() => handleStatusChange(quote.id_presupuesto || quote.id, 'RECHAZADO')} className="p-2 text-red-600 hover:bg-red-100 rounded-full transition"><X size={18}/></button>
+                                    </>
+                                )}
+                                <button onClick={() => handleEdit(quote.id_presupuesto || quote.id)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"><Eye size={18}/></button>
+                                <button onClick={() => handleEdit(quote.id_presupuesto || quote.id, quote.estado)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={18}/></button>
+                                <button onClick={() => handleDeleteClick(quote.id_presupuesto || quote.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18}/></button>
                             </td>
                         </tr>
-                    ) : (
-                        recentQuotes.map((quote) => (
-                            <tr key={quote.id_presupuesto || quote.id} className="hover:bg-gray-50 transition">
-                                <td className="px-6 py-4 font-medium text-gray-900">
-                                    {/* 🔥 FIXED: Uses the map to show the name */}
-                                    {clientsMap[quote.id_cliente] || `Cliente ID: ${quote.id_cliente}`}
-                                </td>
-                               <td className="px-6 py-4 text-sm text-gray-500">
-                                    {/* Usamos el campo correcto que viene de la base de datos */}
-                                    {quote.fecha_presupuesto 
-                                      ? new Date(quote.fecha_presupuesto).toLocaleDateString('es-ES')
-                                      : '-'
-                                    }
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold
-                                        ${quote.estado === 'ACEPTADO' ? 'bg-green-100 text-green-700' : 
-                                          quote.estado === 'RECHAZADO' ? 'bg-red-100 text-red-700' : 
-                                          'bg-yellow-100 text-yellow-700'}`}>
-                                        {quote.estado}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-right font-bold text-gray-700">
-                                    {formatoMoneda(quote.total_neto)}
-                                </td>
-
-                                <td className="px-6 py-4 text-center flex justify-center gap-2 items-center">
-                                    {userRole === 'admin' && quote.estado === 'PENDIENTE' && (
-                                        <>
-                                            <button 
-                                                onClick={() => handleStatusChange(quote.id_presupuesto || quote.id, 'ACEPTADO')} 
-                                                className="p-2 text-green-600 hover:bg-green-100 rounded-full transition mr-1"
-                                                title="Aprobar"
-                                            >
-                                                <Check size={18} />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleStatusChange(quote.id_presupuesto || quote.id, 'RECHAZADO')} 
-                                                className="p-2 text-red-600 hover:bg-red-100 rounded-full transition mr-2"
-                                                title="Rechazar"
-                                            >
-                                                <X size={18} />
-                                            </button>
-                                            <div className="w-px h-5 bg-gray-300 mx-1"></div>
-                                        </>
-                                    )}
-
-                                    <button 
-                                        onClick={() => handleEdit(quote.id_presupuesto || quote.id)} 
-                                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                                        title="Ver detalles"
-                                    >
-                                        <Eye size={18} />
-                                    </button>
-
-                                    <button 
-                                        onClick={() => handleEdit(quote.id_presupuesto || quote.id, quote.estado)}
-                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                                        title="Editar"
-                                    >
-                                        <Pencil size={18} />
-                                    </button>
-
-                                    <button 
-                                        onClick={() => handleDelete(quote.id_presupuesto || quote.id)} 
-                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                                        title="Eliminar"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))
-                    )}
+                    ))}
                 </tbody>
             </table>
         </div>
       </div>
+
+      {/* MODAL DE CONFIRMACIÓN */}
+      <DeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 };
