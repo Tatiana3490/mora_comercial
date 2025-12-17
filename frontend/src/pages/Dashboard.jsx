@@ -299,8 +299,12 @@ const Dashboard = () => {
                                     {/* 🔥 FIXED: Uses the map to show the name */}
                                     {clientsMap[quote.id_cliente] || `Cliente ID: ${quote.id_cliente}`}
                                 </td>
-                                <td className="px-6 py-4 text-sm text-gray-500">
-                                    {new Date(quote.fecha_creacion || Date.now()).toLocaleDateString('es-ES')}
+                               <td className="px-6 py-4 text-sm text-gray-500">
+                                    {/* Usamos el campo correcto que viene de la base de datos */}
+                                    {quote.fecha_presupuesto 
+                                      ? new Date(quote.fecha_presupuesto).toLocaleDateString('es-ES')
+                                      : '-'
+                                    }
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold
