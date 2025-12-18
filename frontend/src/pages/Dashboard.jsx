@@ -48,15 +48,12 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   
-  // Estados para el borrado
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [quoteToDelete, setQuoteToDelete] = useState(null);
 
-  // --- 🔒 SECURITY & ROLES ---
   const userRole = localStorage.getItem('userRole') || 'admin'; 
   const userId = parseInt(localStorage.getItem('userId') || '1');
   
-  // Data States
   const [stats, setStats] = useState({
     totalIngresos: 0,
     clientesCount: 0,
@@ -65,16 +62,16 @@ const Dashboard = () => {
   const [recentQuotes, setRecentQuotes] = useState([]);
   const [clientsMap, setClientsMap] = useState({}); 
 
-  // --- 💶 SPANISH FORMAT ---
   const formatoMoneda = (numero) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: 'EUR',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      useGrouping: true 
     }).format(numero);
   };
 
-  // --- 🚦 CHANGE STATUS ---
   const handleStatusChange = async (id, newStatus) => {
     try {
       const token = localStorage.getItem('token');
@@ -107,7 +104,6 @@ const Dashboard = () => {
     }
   };
 
-  // --- 🗑️ LÓGICA DE BORRADO ---
   const handleDeleteClick = (id) => {
     setQuoteToDelete(id);
     setIsDeleteModalOpen(true);
@@ -137,7 +133,6 @@ const Dashboard = () => {
     setQuoteToDelete(null);
   };
 
-  // --- ✏️ EDIT / VIEW ---
   const handleEdit = (id, currentStatus) => {
     if (userRole !== 'admin' && currentStatus === 'ACEPTADO') {
       toast((t) => (
@@ -147,14 +142,14 @@ const Dashboard = () => {
                 <AlertTriangle size={20} />
              </div>
              <div>
-               <p className="font-bold text-gray-800">¿Editar presupuesto aceptado?</p>
-               <p className="text-sm text-gray-500 mt-1">
-                 El estado cambiará a <span className="font-bold text-orange-600">PENDIENTE</span>.
+               <p className="font-bold text-white">¿Editar presupuesto aceptado?</p>
+               <p className="text-sm text-gray-300 mt-1">
+                 El estado cambiará a <span className="font-bold text-orange-400">PENDIENTE</span>.
                </p>
              </div>
           </div>
-          <div className="flex gap-2 mt-4 justify-end border-t pt-3 border-gray-100">
-            <button onClick={() => toast.dismiss(t.id)} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md">
+          <div className="flex gap-2 mt-4 justify-end border-t pt-3 border-gray-700">
+            <button onClick={() => toast.dismiss(t.id)} className="px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded-md transition">
               Cancelar
             </button>
             <button 
@@ -164,13 +159,24 @@ const Dashboard = () => {
                 localStorage.removeItem('quoteClient');
                 navigate(`/presupuestos/editar/${id}`);
               }}
-              className="px-3 py-1.5 text-sm bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700"
+              className="px-3 py-1.5 text-sm bg-orange-600 text-white font-medium rounded-md hover:bg-orange-700 transition"
             >
               Sí, editar
             </button>
           </div>
         </div>
-      ), { duration: 6000 });
+      ), { 
+        duration: 8000,
+        position: 'top-center',
+        style: {
+          background: '#2d2d30', 
+          color: '#fff',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)',
+          padding: '16px',
+          borderRadius: '12px',
+          border: '1px solid #444'
+        }
+      }); // <--- CORREGIDO AQUÍ
       return;
     }
     localStorage.removeItem('quoteItems');
@@ -178,7 +184,6 @@ const Dashboard = () => {
     navigate(`/presupuestos/editar/${id}`);
   };
 
-  // --- 📥 DATA LOADING ---
   useEffect(() => {
     async function loadDashboardData() {
       try {
@@ -229,7 +234,6 @@ const Dashboard = () => {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
            <h1 className="text-3xl font-bold text-gray-900">Panel de Control</h1>
@@ -243,7 +247,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* --- CARDS --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition">
             <div>
@@ -274,7 +277,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* --- TABLE --- */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
@@ -331,7 +333,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* MODAL DE CONFIRMACIÓN */}
       <DeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
