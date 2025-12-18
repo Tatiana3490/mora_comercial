@@ -136,7 +136,7 @@ const Login = () => {
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-400">
-          ¿Problemas para entrar? Contacta con soporte.
+          ¿Problemas para entrar? Contacta con el Administrador.
         </p>
       </div>
     </div>
