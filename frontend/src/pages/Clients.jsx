@@ -26,7 +26,7 @@ const Clients = () => {
   const fetchClients = async () => {
     try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/v1/clientes/', {
+        const response = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -80,7 +80,7 @@ const Clients = () => {
     try {
         const token = localStorage.getItem('token');
         const isEditing = !!formData.id_cliente; 
-        const url = isEditing ? `http://localhost:8000/v1/clientes/${formData.id_cliente}` : 'http://localhost:8000/v1/clientes/';
+        const url = isEditing ? `${import.meta.env.VITE_API_URL}/v1/clientes/${formData.id_cliente}` : '${import.meta.env.VITE_API_URL}/v1/clientes/';
         const method = isEditing ? 'PUT' : 'POST';
         
         const response = await fetch(url, {
@@ -100,7 +100,7 @@ const Clients = () => {
      // ... (Tu lógica de borrar sigue igual) ...
      if (!confirm("¿Borrar cliente?")) return;
      const token = localStorage.getItem('token');
-     await fetch(`http://localhost:8000/v1/clientes/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+     await fetch(`v/v1/clientes/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
      fetchClients();
   };
 

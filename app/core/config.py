@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # --- Configuración de URL Base ---
     # Usada para generar URLs completas para imágenes estáticas
-    BASE_URL: str = "http://localhost:8000"
+    BASE_URL: str = "${import.meta.env.VITE_API_URL}"
     
     # --- Configuración de Seguridad (Ejemplos) ---
     SECRET_KEY: str = "UNA_CLAVE_SUPER_SECRETA_Y_LARGA" 

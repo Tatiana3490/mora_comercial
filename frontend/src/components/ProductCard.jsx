@@ -17,7 +17,7 @@ const ProductCard = ({ product, onAddToQuote }) => {
   const activeIndex = currentImgIndex >= gallery.length ? 0 : currentImgIndex;
   
   const currentUrl = gallery.length > 0 
-    ? `http://localhost:8000${encodeURI(gallery[activeIndex])}`
+    ? `${import.meta.env.VITE_API_URL}${encodeURI(gallery[activeIndex])}`
     : null;
 
   const nextImage = (e) => {

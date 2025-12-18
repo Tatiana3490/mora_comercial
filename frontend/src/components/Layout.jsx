@@ -31,8 +31,8 @@ export default function Layout() {
         if (!token) return;
 
         const [resPresupuestos, resClientes] = await Promise.all([
-            fetch('http://localhost:8000/v1/presupuestos/', { headers: { 'Authorization': `Bearer ${token}` } }),
-            fetch('http://localhost:8000/v1/clientes/', { headers: { 'Authorization': `Bearer ${token}` } })
+            fetch('${import.meta.env.VITE_API_URL}/v1/presupuestos/', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', { headers: { 'Authorization': `Bearer ${token}` } })
         ]);
 
         if (resPresupuestos.ok && resClientes.ok) {

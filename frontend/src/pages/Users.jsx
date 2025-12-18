@@ -24,7 +24,7 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:8000/v1/usuarios/', {
+        const res = await fetch('${import.meta.env.VITE_API_URL}/v1/usuarios/', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) setUsers(await res.json());
@@ -54,7 +54,7 @@ const Users = () => {
     try {
         const token = localStorage.getItem('token');
         const isEditing = !!formData.id_usuario;
-        const url = isEditing ? `http://localhost:8000/v1/usuarios/${formData.id_usuario}` : 'http://localhost:8000/v1/usuarios/';
+        const url = isEditing ? `${import.meta.env.VITE_API_URL}/v1/usuarios/${formData.id_usuario}` : '${import.meta.env.VITE_API_URL}/v1/usuarios/';
         const method = isEditing ? 'PUT' : 'POST';
 
         const res = await fetch(url, {
@@ -87,7 +87,7 @@ const Users = () => {
 
       try {
           const token = localStorage.getItem('token');
-          const res = await fetch(`http://localhost:8000/v1/usuarios/${resetData.id_usuario}/reset-password`, {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/usuarios/${resetData.id_usuario}/reset-password`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({ new_password: resetData.new_password })
@@ -104,7 +104,7 @@ const Users = () => {
   const handleDelete = async (id) => {
       if(!confirm("¿Eliminar usuario?")) return;
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8000/v1/usuarios/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
       if (res.ok) { fetchUsers(); toast.success("Usuario eliminado"); }
   };
 

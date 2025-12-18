@@ -1,0 +1,191 @@
+# Query: http://localhost:8000
+# ContextLines: 1
+
+50 results - 16 files
+
+QUICKSTART.md:
+   29  Esto inicia:
+   30: - Backend en `${import.meta.env.VITE_API_URL}`
+   31  - Frontend en `${import.meta.env.VITE_API_URL}`
+
+   55  | Frontend | ${import.meta.env.VITE_API_URL} | Aplicación React |
+   56: | API | ${import.meta.env.VITE_API_URL} | Backend FastAPI |
+   57: | API Docs | http://localhost:8000/docs | Swagger/OpenAPI |
+   58: | API ReDoc | http://localhost:8000/redoc | ReDoc Docs |
+   59  
+
+   74  ```bash
+   75: curl -X POST http://localhost:8000/api/v1/auth/login \
+   76    -F "username=admin@example.com" \
+
+   98  curl -H "Authorization: Bearer $TOKEN" \
+   99:   http://localhost:8000/api/v1/usuarios/me
+  100  ```
+
+  104  ```bash
+  105: curl http://localhost:8000/api/v1/articulos/
+  106  ```
+
+README.md:
+   84  
+   85: El backend estará disponible en `${import.meta.env.VITE_API_URL}`. 
+   86: - API: `${import.meta.env.VITE_API_URL}/api/v1/`
+   87: - OpenAPI Docs: `${import.meta.env.VITE_API_URL}/docs`
+   88: - ReDoc: `${import.meta.env.VITE_API_URL}/redoc`
+   89  
+
+  116  ```bash
+  117: curl -X POST "${import.meta.env.VITE_API_URL}/api/v1/auth/login" \
+  118    -F "username=admin@example.com" \
+
+  133  curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  134:   ${import.meta.env.VITE_API_URL}/api/v1/usuarios/me
+  135  ```
+
+  138  ```bash
+  139: curl -X POST "${import.meta.env.VITE_API_URL}/api/v1/usuarios/" \
+  140    -H "Authorization: Bearer <ADMIN_TOKEN>" \
+
+  152  curl -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  153:   "${import.meta.env.VITE_API_URL}/api/v1/audits/"
+  154  ```
+
+  314  | `ModuleNotFoundError: No module named 'app'` | Ejecuta `export PYTHONPATH=.` o `set PYTHONPATH=.` |
+  315: | Error de conexión frontend-backend | Verifica que backend corre en `${import.meta.env.VITE_API_URL}` y que CORS permite el origen del frontend |
+  316  | Tests fallan con rate limiting | Asegúrate de `export TESTING=1` antes de `pytest` |
+
+.github\copilot-instructions.md:
+  38  ```bash
+  39: curl -X POST "${import.meta.env.VITE_API_URL}/api/v1/auth/login" \
+  40    -F "username=admin@example.com" \
+
+  47  curl -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  48:   ${import.meta.env.VITE_API_URL}/api/v1/usuarios/me
+  49  ```
+
+app\core\config.py:
+  21      # Usada para generar URLs completas para imágenes estáticas
+  22:     BASE_URL: str = "${import.meta.env.VITE_API_URL}"
+  23      
+
+frontend\src\components\Layout.jsx:
+  33          const [resPresupuestos, resClientes] = await Promise.all([
+  34:             fetch('${import.meta.env.VITE_API_URL}/v1/presupuestos/', { headers: { 'Authorization': `Bearer ${token}` } }),
+  35:             fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', { headers: { 'Authorization': `Bearer ${token}` } })
+  36          ]);
+
+frontend\src\components\PrivateNotes.jsx:
+   31        const token = localStorage.getItem('token');
+   32:       const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${clientId}`, {
+   33          headers: { 'Authorization': `Bearer ${token}` }
+
+   49        const token = localStorage.getItem('token');
+   50:       const response = await fetch('${import.meta.env.VITE_API_URL}/v1/notas/', {
+   51          method: 'POST',
+
+   84          const token = localStorage.getItem('token');
+   85:         const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${editingId}`, {
+   86              method: 'PUT',
+
+  115        const token = localStorage.getItem('token');
+  116:       const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${noteToDelete}`, {
+  117          method: 'DELETE',
+
+frontend\src\components\ProductCard.jsx:
+  19    const currentUrl = gallery.length > 0 
+  20:     ? `${import.meta.env.VITE_API_URL}${encodeURI(gallery[activeIndex])}`
+  21      : null;
+
+frontend\src\pages\Catalog.jsx:
+  30          // Usamos '/v1/' en lugar de '/api/v1/' para que coincida con tu backend
+  31:         const response = await fetch('${import.meta.env.VITE_API_URL}/v1/articulos/', { headers });
+  32          
+
+frontend\src\pages\Clients.jsx:
+   28          const token = localStorage.getItem('token');
+   29:         const response = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', {
+   30              headers: { 'Authorization': `Bearer ${token}` }
+
+   82          const isEditing = !!formData.id_cliente; 
+   83:         const url = isEditing ? `${import.meta.env.VITE_API_URL}/v1/clientes/${formData.id_cliente}` : '${import.meta.env.VITE_API_URL}/v1/clientes/';
+   84          const method = isEditing ? 'PUT' : 'POST';
+
+  102       const token = localStorage.getItem('token');
+  103:      await fetch(`${import.meta.env.VITE_API_URL}/v1/clientes/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+  104       fetchClients();
+
+frontend\src\pages\Dashboard.jsx:
+   77        const token = localStorage.getItem('token');
+   78:       const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/presupuestos/${id}`, {
+   79          method: 'PUT', 
+
+  118      toast.promise(
+  119:       fetch(`${import.meta.env.VITE_API_URL}/v1/presupuestos/${quoteToDelete}`, {
+  120          method: 'DELETE',
+
+  192  
+  193:         const resClients = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', { headers });
+  194          let clientsData = resClients.ok ? await resClients.json() : [];
+
+  205  
+  206:         const resQuotes = await fetch('${import.meta.env.VITE_API_URL}/v1/presupuestos/', { headers });
+  207          let quotesData = resQuotes.ok ? await resQuotes.json() : [];
+
+frontend\src\pages\Login.jsx:
+  26      try {
+  27:       const response = await fetch('${import.meta.env.VITE_API_URL}/v1/auth/login', {
+  28          method: 'POST',
+
+frontend\src\pages\Quotes.jsx:
+   51        const token = localStorage.getItem('token');
+   52:       const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/presupuestos/${idPresupuesto}`, {
+   53          headers: { 'Authorization': `Bearer ${token}` }
+
+   78          const token = localStorage.getItem('token');
+   79:         const response = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', {
+   80            headers: { 'Authorization': `Bearer ${token}` }
+
+  129          const url = isEditing
+  130:           ? `${import.meta.env.VITE_API_URL}/v1/presupuestos/${id}`
+  131:           : '${import.meta.env.VITE_API_URL}/v1/presupuestos/';
+  132          const method = isEditing ? 'PUT' : 'POST';
+
+frontend\src\pages\Users.jsx:
+   26          const token = localStorage.getItem('token');
+   27:         const res = await fetch('${import.meta.env.VITE_API_URL}/v1/usuarios/', {
+   28              headers: { 'Authorization': `Bearer ${token}` }
+
+   56          const isEditing = !!formData.id_usuario;
+   57:         const url = isEditing ? `${import.meta.env.VITE_API_URL}/v1/usuarios/${formData.id_usuario}` : 'http://localhost:8000/v1/usuarios/';
+   58          const method = isEditing ? 'PUT' : 'POST';
+
+   89            const token = localStorage.getItem('token');
+   90:           const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/usuarios/${resetData.id_usuario}/reset-password`, {
+   91                method: 'PUT',
+
+  106        const token = localStorage.getItem('token');
+  107:       const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/usuarios/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+  108        if (res.ok) { fetchUsers(); toast.success("Usuario eliminado"); }
+
+frontend\src\services\dashboardService.js:
+  4  // Si en el futuro subes esto a producción, cambiarás esta URL.
+  5: const API_URL = '${import.meta.env.VITE_API_URL}/api'; 
+  6  
+
+scripts\api-calls.sh:
+   15  #
+   16: # Requisitos: curl instalado, backend corriendo en http://localhost:8000
+   17  #
+
+   31  # Variables base
+   32: BASE_URL="${import.meta.env.VITE_API_URL}/api/v1"
+   33  ADMIN_EMAIL="admin@example.com"
+
+  305  ${YELLOW}Variables de entorno:${NC}
+  306:   BASE_URL                 - URL base de la API (default: ${import.meta.env.VITE_API_URL}/api/v1)
+  307    ADMIN_EMAIL              - Email del usuario admin (default: admin@example.com)
+
+scripts\mora-comercial-api.postman_collection.json:
+  294        "key": "base_url",
+  295:       "value": "${import.meta.env.VITE_API_URL}/api/v1",
+  296        "type": "string"

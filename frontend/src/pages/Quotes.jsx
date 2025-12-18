@@ -49,7 +49,7 @@ const Quotes = () => {
   const cargarPresupuestoParaEditar = async (idPresupuesto) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/v1/presupuestos/${idPresupuesto}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/presupuestos/${idPresupuesto}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -76,7 +76,7 @@ const Quotes = () => {
     async function fetchClients() {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/v1/clientes/', {
+        const response = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -127,8 +127,8 @@ const Quotes = () => {
         };
 
         const url = isEditing
-          ? `http://localhost:8000/v1/presupuestos/${id}`
-          : 'http://localhost:8000/v1/presupuestos/';
+          ? `${import.meta.env.VITE_API_URL}/v1/presupuestos/${id}`
+          : '${import.meta.env.VITE_API_URL}/v1/presupuestos/';
         const method = isEditing ? 'PUT' : 'POST';
 
         const response = await fetch(url, {

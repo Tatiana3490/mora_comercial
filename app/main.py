@@ -39,14 +39,14 @@ debug_router = APIRouter(prefix="/debug", tags=["Debug"])
 @debug_router.get("/fix-password")
 def fix_jefe_password(session: Session = Depends(get_session)):
     # 1. Buscar al usuario Jefe
-    email_objetivo = "jefe@mora.com"
+    email_objetivo = "adminmora@gmail.com"
     user = session.exec(select(User).where(User.email == email_objetivo)).first()
     
     if not user:
         return {"error": f"Usuario {email_objetivo} no encontrado"}
     
     # 2. Forzar la contraseña a '1234' (hasheada UNA SOLA VEZ)
-    nueva_pass = "1234"
+    nueva_pass = "Adminmora1@"
     user.password_hash = hash_password(nueva_pass)
     
     session.add(user)
