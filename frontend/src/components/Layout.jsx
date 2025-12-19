@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutGrid, BookOpen, Calculator, Users, LogOut, Bell, User, CheckCircle, XCircle, Menu } from 'lucide-react'; 
 
+
+
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate(); 
@@ -99,12 +101,13 @@ export default function Layout() {
         lg:translate-x-0 lg:static lg:shadow-none
       `}>
         <div className="p-6 flex items-center justify-between lg:justify-start gap-3">
-          <div className="flex items-center gap-3">
-             <div className="h-10 w-10 rounded bg-mora-orange flex items-center justify-center font-bold">CM</div>
-             <div>
-                <h1 className="font-bold leading-none">Cerámicas</h1>
-                <span className="text-mora-orange font-bold">Mora</span>
-             </div>
+          {/* LOGO DE LA EMPRESA */}
+          <div className="flex items-center justify-center w-full">
+              <img 
+                  src="/logo-mora4.png" 
+                  alt="Cerámicas Mora" 
+                  className="h-12 w-auto object-contain rounded-md" // Ajusta h-12 (altura) según necesites
+              />
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
             <XCircle size={24} />

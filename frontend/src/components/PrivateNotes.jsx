@@ -8,8 +8,9 @@ const PrivateNotes = ({ clientId }) => {
   const [loading, setLoading] = useState(true);
 
   // --- SEGURIDAD VISUAL ---
-  // Obtenemos el ID del usuario conectado para saber qué notas son suyas
   const currentUserId = parseInt(localStorage.getItem('userId') || '0');
+  // Obtenemos también el rol del usuario conectado
+  const userRole = localStorage.getItem('userRole') || 'comercial'; // Por defecto comercial si no hay nada
 
   // --- ESTADOS PARA EDICIÓN ---
   const [editingId, setEditingId] = useState(null); 
@@ -29,6 +30,7 @@ const PrivateNotes = ({ clientId }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      // Asegúrate de que esta URL apunta a tu backend (usa variable de entorno si puedes)
       const response = await fetch(`http://localhost:8000/v1/notas/${clientId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -141,11 +143,9 @@ const PrivateNotes = ({ clientId }) => {
          notes.map(nota => {
            const isEditing = editingId === nota.id;
            
-           // El ID de localStorage suele ser texto ("2"), y el de la nota número (2).
-            const isOwner = Number(nota.id_usuario) === Number(currentUserId);
-
-            // 🕵️ DEBUG TEMPORAL: Mira la consola (F12) si los botones no salen
-            // console.log(`Nota ${nota.id}: Dueño=${nota.id_usuario}, Tú=${currentUserId}, ¿Es tuya? ${isOwner}`);
+           // 🔥 LÓGICA DE PERMISOS ACTUALIZADA:
+           // Eres dueño SI: El ID coincide O si tu rol es 'ADMIN'
+           const isOwner = (Number(nota.id_usuario) === Number(currentUserId)) || (userRole === 'ADMIN');
 
            return (
            <div key={nota.id} className={`p-3 rounded-lg border shadow-sm text-sm relative group transition ${isEditing ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-200' : 'bg-white border-orange-100 hover:shadow-md'}`}>
@@ -172,7 +172,7 @@ const PrivateNotes = ({ clientId }) => {
              ) : (
                  // --- MODO VISUALIZACIÓN ---
                  <>
-                    {/* 🔥 SOLO MOSTRAMOS BOTONES SI ES EL PROPIETARIO */}
+                    {/* MOSTRAMOS BOTONES SI ES DUEÑO O ADMIN */}
                     {isOwner && (
                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button 
@@ -194,8 +194,8 @@ const PrivateNotes = ({ clientId }) => {
 
                     <p className="text-gray-700 whitespace-pre-wrap pr-10 text-[13px]">{nota.contenido}</p>
                     <p className="text-[10px] text-gray-400 mt-2 text-right font-mono">
-                        {/* Opcional: Mostrar quién escribió la nota si NO soy yo */}
-                        {!isOwner && <span className="mr-2 font-bold text-orange-400">Escrito por comercial</span>}
+                        {/* Indicamos si la nota fue escrita por otro, aunque ahora podamos editarla */}
+                        {Number(nota.id_usuario) !== Number(currentUserId) && <span className="mr-2 font-bold text-orange-400">De otro usuario</span>}
                         {new Date(nota.fecha_creacion).toLocaleString()}
                     </p>
                  </>
