@@ -75,7 +75,7 @@ const Dashboard = () => {
   const handleStatusChange = async (id, newStatus) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/v1/presupuestos/${id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/presupuestos/${id}`, {
         method: 'PUT', 
         headers: {
           'Content-Type': 'application/json',
@@ -116,7 +116,7 @@ const Dashboard = () => {
     const token = localStorage.getItem('token');
 
     toast.promise(
-      fetch(`http://localhost:8000/v1/presupuestos/${quoteToDelete}`, {
+      fetch(`${import.meta.env.VITE_API_URL}/v1/presupuestos/${quoteToDelete}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       }).then(async (res) => {
@@ -190,7 +190,7 @@ const Dashboard = () => {
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        const resClients = await fetch('http://localhost:8000/v1/clientes/', { headers });
+        const resClients = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', { headers });
         let clientsData = resClients.ok ? await resClients.json() : [];
 
         if (userRole !== 'admin') {
@@ -203,7 +203,7 @@ const Dashboard = () => {
         });
         setClientsMap(clientsDictionary); 
 
-        const resQuotes = await fetch('http://localhost:8000/v1/presupuestos/', { headers });
+        const resQuotes = await fetch('${import.meta.env.VITE_API_URL}/v1/presupuestos/', { headers });
         let quotesData = resQuotes.ok ? await resQuotes.json() : [];
 
         if (userRole !== 'admin') {

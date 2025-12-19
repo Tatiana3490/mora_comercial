@@ -28,7 +28,7 @@ const Catalog = () => {
         
         // --- 🛠️ CORRECCIÓN DE URL APLICADA AQUÍ ---
         // Usamos '/v1/' en lugar de '/api/v1/' para que coincida con tu backend
-        const response = await fetch('http://localhost:8000/v1/articulos/', { headers });
+        const response = await fetch('${import.meta.env.VITE_API_URL}/v1/articulos/', { headers });
         
         if (response.ok) {
             const data = await response.json();

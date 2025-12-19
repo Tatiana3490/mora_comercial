@@ -30,10 +30,12 @@ const PrivateNotes = ({ clientId }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      // Asegúrate de que esta URL apunta a tu backend (usa variable de entorno si puedes)
+      
+      // Aquí estaba el conflicto, asegúrate de que queda esta línea limpia:
       const response = await fetch(`http://localhost:8000/v1/notas/${clientId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
       if (response.ok) {
         setNotes(await response.json());
       }
@@ -42,14 +44,14 @@ const PrivateNotes = ({ clientId }) => {
     } finally {
       setLoading(false);
     }
-  };
+};
 
   const handleSave = async () => {
     if (!newNote.trim()) return;
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/v1/notas/', {
+      const response = await fetch('${import.meta.env.VITE_API_URL}/v1/notas/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +86,7 @@ const PrivateNotes = ({ clientId }) => {
 
     try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8000/v1/notas/${editingId}`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${editingId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -115,7 +117,7 @@ const PrivateNotes = ({ clientId }) => {
     if (!noteToDelete) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/v1/notas/${noteToDelete}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${noteToDelete}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

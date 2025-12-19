@@ -2,7 +2,7 @@
 
 // 1. Define la URL base de tu API (FastAPI suele correr en el puerto 8000)
 // Si en el futuro subes esto a producción, cambiarás esta URL.
-const API_URL = 'http://localhost:8000/api'; 
+const API_URL = '${import.meta.env.VITE_API_URL}/api'; 
 
 /**
  * Obtiene las estadísticas para el Dashboard (Inicio)
