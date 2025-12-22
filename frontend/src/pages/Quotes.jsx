@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Trash2, Save, Plus, FileText, User } from 'lucide-react';
+// ✅ IMPORT CORRECTO (Añadido Search y sin duplicados)
+import { Trash2, Save, Plus, FileText, User, Search } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
@@ -21,6 +22,10 @@ const Quotes = () => {
   });
 
   const [availableClients, setAvailableClients] = useState([]);
+  
+  // PARA EL BUSCADOR
+  const [clientSearch, setClientSearch] = useState('');
+
   const [selectedClientId, setSelectedClientId] = useState(() => {
     if (!id) return localStorage.getItem('quoteClient') || '';
     return '';
@@ -76,14 +81,18 @@ const Quotes = () => {
     async function fetchClients() {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/clientes/`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        
         if (response.ok) {
           let data = await response.json();
-          if (userRole !== 'admin') {
-            data = data.filter(c => c.id_comercial_propietario === userId);
-          }
+          
+          // ✅ FILTRO COMENTADO CORRECTAMENTE (Sin llave extra)
+          /* if (userRole !== 'admin') { 
+             data = data.filter(c => c.id_comercial_propietario === userId);
+          } */
+
           setAvailableClients(data);
         }
       } catch (error) {
@@ -128,7 +137,7 @@ const Quotes = () => {
 
         const url = isEditing
           ? `${import.meta.env.VITE_API_URL}/v1/presupuestos/${id}`
-          : '${import.meta.env.VITE_API_URL}/v1/presupuestos/';
+          : `${import.meta.env.VITE_API_URL}/v1/presupuestos/`;
         const method = isEditing ? 'PUT' : 'POST';
 
         const response = await fetch(url, {
@@ -257,17 +266,58 @@ const Quotes = () => {
         <p className="text-gray-500 mb-8">Configura los precios finales para el cliente.</p>
 
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 items-end">
+          
+          {/* ✅ ZONA DEL CLIENTE MEJORADA CON BUSCADOR */}
           <div className="flex-1 w-full">
-            <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><User size={16} /> Cliente</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                <User size={16} /> Cliente
+            </label>
+            
             {loading ? <p className="text-sm text-gray-400">Cargando...</p> : (
-              <select className="block w-full p-3 border border-gray-300 rounded-lg outline-none" value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)}>
-                <option value="">-- Seleccionar Cliente --</option>
-                {availableClients.map(c => (
-                  <option key={c.id_cliente} value={c.id_cliente}>{c.nombre}</option>
-                ))}
-              </select>
+              <div className="relative">
+                {/* 1. INPUT BUSCADOR */}
+                <div className="relative mb-2">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search size={16} className="text-gray-400"/>
+                    </div>
+                    <input 
+                        type="text"
+                        placeholder="Filtrar clientes..."
+                        className="w-full pl-9 p-2 text-sm border border-gray-200 rounded-md bg-gray-50 focus:outline-none focus:border-orange-500 transition"
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                    />
+                </div>
+
+                {/* 2. SELECT FILTRADO */}
+                <select 
+                    className="block w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-100 transition" 
+                    value={selectedClientId} 
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    size={5} // Muestra 5 opciones abiertas (más cómodo)
+                >
+                  <option value="">-- Seleccionar Cliente --</option>
+                  
+                  {/* Filtro en tiempo real */}
+                  {availableClients
+                    .filter(c => 
+                        c.nombre.toLowerCase().includes(clientSearch.toLowerCase()) || 
+                        (c.nif && c.nif.toLowerCase().includes(clientSearch.toLowerCase()))
+                    )
+                    .map(c => (
+                      <option key={c.id_cliente} value={c.id_cliente}>
+                        {c.nombre} {c.nif ? `(${c.nif})` : ''}
+                      </option>
+                    ))
+                  }
+                </select>
+                <p className="text-xs text-gray-400 mt-1 pl-1">
+                   * Escribe arriba para buscar y selecciona abajo.
+                </p>
+              </div>
             )}
           </div>
+
           <button onClick={generatePDFOnly} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-lg flex items-center gap-2"><FileText size={18} /> PDF</button>
         </div>
 
@@ -320,7 +370,6 @@ const Quotes = () => {
         <div className="flex-1 overflow-hidden flex flex-col">
           <h2 className="text-xl font-bold text-orange-500 mb-6 shrink-0">Resumen Económico</h2>
           
-          {/* LISTA DE PRODUCTOS CON SCROLL Y PRECIO UNITARIO */}
           <div className="space-y-3 mb-6 overflow-y-auto pr-2 flex-1 min-h-0 custom-scrollbar">
             {items.length === 0 ? (
                 <p className="text-gray-500 text-sm italic">No hay productos seleccionados.</p>
@@ -330,13 +379,11 @@ const Quotes = () => {
                         <div className="text-gray-300 pr-2">
                             <span className="block text-white font-medium">{item.nombre}</span>
                             
-                            {/* --- AQUÍ ESTÁ EL CAMBIO --- */}
                             <div className="text-xs text-gray-400 mt-1">
                                 <span>x{item.cantidad} ud.</span>
                                 <span className="mx-2 text-gray-600">|</span>
                                 <span>{formatoMoneda(item.precio)} /ud.</span>
                             </div>
-                            {/* --------------------------- */}
                             
                         </div>
                         <span className="text-gray-200 font-mono whitespace-nowrap pt-1">

@@ -16,9 +16,15 @@ const ProductCard = ({ product, onAddToQuote }) => {
 
   const activeIndex = currentImgIndex >= gallery.length ? 0 : currentImgIndex;
   
-  const currentUrl = gallery.length > 0 
-    ? `${import.meta.env.VITE_API_URL}${encodeURI(gallery[activeIndex])}`
-    : null;
+  // --- 🛠️ CORRECCIÓN AQUÍ: LÓGICA INTELIGENTE DE URL ---
+  const getSafeUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path; // Si ya es absoluta, la usamos tal cual
+    return `${import.meta.env.VITE_API_URL}${encodeURI(path)}`; // Si es relativa, le pegamos el dominio
+  };
+
+  const currentUrl = gallery.length > 0 ? getSafeUrl(gallery[activeIndex]) : null;
+  // -----------------------------------------------------
 
   const nextImage = (e) => {
     e.stopPropagation();
@@ -60,15 +66,15 @@ const ProductCard = ({ product, onAddToQuote }) => {
         {/* FLECHAS DEL CARRUSEL */}
         {gallery.length > 1 && (
             <>
-                <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white p-1 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100">
+                <button onClick={prevImage} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white p-1 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10">
                     <ChevronLeft size={20} />
                 </button>
-                <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white p-1 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100">
+                <button onClick={nextImage} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 text-white p-1 rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 z-10">
                     <ChevronRight size={20} />
                 </button>
                 
                 {/* Puntitos indicadores */}
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
                     {gallery.map((_, idx) => (
                         <div key={idx} className={`h-1.5 w-1.5 rounded-full shadow-sm ${idx === activeIndex ? 'bg-white' : 'bg-white/40'}`} />
                     ))}
@@ -77,7 +83,7 @@ const ProductCard = ({ product, onAddToQuote }) => {
         )}
 
         {/* Etiqueta Familia */}
-        <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
+        <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm z-10">
             {product.familia || 'General'}
         </div>
       </div>

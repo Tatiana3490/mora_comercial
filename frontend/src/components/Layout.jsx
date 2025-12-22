@@ -32,9 +32,10 @@ export default function Layout() {
         const token = localStorage.getItem('token');
         if (!token) return;
 
+        // CORRECCIÓN: Usar backticks (`) en lugar de comillas simples (')
         const [resPresupuestos, resClientes] = await Promise.all([
-            fetch('${import.meta.env.VITE_API_URL}/v1/presupuestos/', { headers: { 'Authorization': `Bearer ${token}` } }),
-            fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', { headers: { 'Authorization': `Bearer ${token}` } })
+            fetch('http://localhost:8000/v1/presupuestos/', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('http://localhost:8000/v1/clientes/', { headers: { 'Authorization': `Bearer ${token}` } })
         ]);
 
         if (resPresupuestos.ok && resClientes.ok) {
@@ -104,7 +105,7 @@ export default function Layout() {
           {/* LOGO DE LA EMPRESA */}
           <div className="flex items-center justify-center w-full">
               <img 
-                  src="/logo-mora4.png" 
+                  src="/logo-mora.png" 
                   alt="Cerámicas Mora" 
                   className="h-12 w-auto object-contain rounded-md" // Ajusta h-12 (altura) según necesites
               />

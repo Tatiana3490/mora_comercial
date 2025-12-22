@@ -7,10 +7,8 @@ const PrivateNotes = ({ clientId }) => {
   const [newNote, setNewNote] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // --- SEGURIDAD VISUAL ---
+  // Datos del usuario actual (solo para efectos visuales)
   const currentUserId = parseInt(localStorage.getItem('userId') || '0');
-  // Obtenemos también el rol del usuario conectado
-  const userRole = localStorage.getItem('userRole') || 'comercial'; // Por defecto comercial si no hay nada
 
   // --- ESTADOS PARA EDICIÓN ---
   const [editingId, setEditingId] = useState(null); 
@@ -31,8 +29,8 @@ const PrivateNotes = ({ clientId }) => {
       setLoading(true);
       const token = localStorage.getItem('token');
       
-      // Aquí estaba el conflicto, asegúrate de que queda esta línea limpia:
-      const response = await fetch(`http://localhost:8000/v1/notas/${clientId}`, {
+   
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${clientId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -44,14 +42,16 @@ const PrivateNotes = ({ clientId }) => {
     } finally {
       setLoading(false);
     }
-};
+  };
 
   const handleSave = async () => {
     if (!newNote.trim()) return;
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('${import.meta.env.VITE_API_URL}/v1/notas/', {
+      
+   
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,9 +64,12 @@ const PrivateNotes = ({ clientId }) => {
         setNewNote('');
         fetchNotes(); 
         toast.success("Nota guardada");
+      } else {
+        toast.error("Error al guardar");
       }
     } catch (error) {
-      toast.error("Error al guardar");
+      console.error(error);
+      toast.error("Error de conexión");
     }
   };
 
@@ -86,6 +89,7 @@ const PrivateNotes = ({ clientId }) => {
 
     try {
         const token = localStorage.getItem('token');
+       
         const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${editingId}`, {
             method: 'PUT',
             headers: {
@@ -100,7 +104,8 @@ const PrivateNotes = ({ clientId }) => {
             fetchNotes();
             setEditingId(null);
         } else {
-            toast.error("No tienes permiso para editar");
+            // Si el backend bloquea la edición, saldrá este error
+            toast.error("Error: Puede que el servidor no permita editar notas ajenas");
         }
     } catch (error) {
         console.error(error);
@@ -117,6 +122,7 @@ const PrivateNotes = ({ clientId }) => {
     if (!noteToDelete) return;
     try {
       const token = localStorage.getItem('token');
+     
       const response = await fetch(`${import.meta.env.VITE_API_URL}/v1/notas/${noteToDelete}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -126,7 +132,7 @@ const PrivateNotes = ({ clientId }) => {
         toast.success("Nota eliminada");
         fetchNotes(); 
       } else {
-        toast.error("No tienes permiso para borrar");
+        toast.error("Error al borrar nota");
       }
     } catch (error) {
       toast.error("Error de conexión");
@@ -139,16 +145,12 @@ const PrivateNotes = ({ clientId }) => {
     <div className="h-full flex flex-col relative">
       
       {/* Lista de Notas */}
-      <div className="flex-1 overflow-y-auto mb-4 pr-2 space-y-3 min-h-[100px] max-h-[300px]">
+      <div className="flex-1 overflow-y-auto mb-4 pr-2 space-y-3 min-h-[100px] max-h-[300px] custom-scrollbar">
         {loading ? <p className="text-sm text-center text-gray-400 mt-4">Cargando...</p> : 
          notes.length === 0 ? <div className="text-center text-gray-400 text-sm mt-4 italic">No hay notas registradas.</div> :
          notes.map(nota => {
            const isEditing = editingId === nota.id;
            
-           // 🔥 LÓGICA DE PERMISOS ACTUALIZADA:
-           // Eres dueño SI: El ID coincide O si tu rol es 'ADMIN'
-           const isOwner = (Number(nota.id_usuario) === Number(currentUserId)) || (userRole === 'ADMIN');
-
            return (
            <div key={nota.id} className={`p-3 rounded-lg border shadow-sm text-sm relative group transition ${isEditing ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-200' : 'bg-white border-orange-100 hover:shadow-md'}`}>
              
@@ -174,29 +176,27 @@ const PrivateNotes = ({ clientId }) => {
              ) : (
                  // --- MODO VISUALIZACIÓN ---
                  <>
-                    {/* MOSTRAMOS BOTONES SI ES DUEÑO O ADMIN */}
-                    {isOwner && (
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                                onClick={() => startEditing(nota)}
-                                className="text-gray-300 hover:text-blue-500 p-1 hover:bg-blue-50 rounded"
-                                title="Editar nota"
-                            >
-                                <Edit2 size={14} />
-                            </button>
-                            <button 
-                                onClick={() => handleDeleteClick(nota.id)}
-                                className="text-gray-300 hover:text-red-500 p-1 hover:bg-red-50 rounded"
-                                title="Borrar nota"
-                            >
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
-                    )}
+                    {/* BOTONES VISIBLES PARA TODOS (Sin restricción de dueño) */}
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                            onClick={() => startEditing(nota)}
+                            className="text-gray-300 hover:text-blue-500 p-1 hover:bg-blue-50 rounded"
+                            title="Editar nota"
+                        >
+                            <Edit2 size={14} />
+                        </button>
+                        <button 
+                            onClick={() => handleDeleteClick(nota.id)}
+                            className="text-gray-300 hover:text-red-500 p-1 hover:bg-red-50 rounded"
+                            title="Borrar nota"
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
 
                     <p className="text-gray-700 whitespace-pre-wrap pr-10 text-[13px]">{nota.contenido}</p>
                     <p className="text-[10px] text-gray-400 mt-2 text-right font-mono">
-                        {/* Indicamos si la nota fue escrita por otro, aunque ahora podamos editarla */}
+                        {/* Etiqueta informativa, pero no bloqueante */}
                         {Number(nota.id_usuario) !== Number(currentUserId) && <span className="mr-2 font-bold text-orange-400">De otro usuario</span>}
                         {new Date(nota.fecha_creacion).toLocaleString()}
                     </p>

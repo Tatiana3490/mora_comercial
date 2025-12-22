@@ -21,7 +21,7 @@ def create_nota(
     nueva_nota = Nota(
         contenido=nota_in.contenido,
         id_cliente=nota_in.id_cliente,
-        id_usuario=current_user.id_usuario
+        id_usuario=current_user.id_usuario # Guardamos quién la creó, aunque todos puedan tocarla después
     )
     session.add(nueva_nota)
     session.commit()
@@ -41,12 +41,6 @@ def read_notas_cliente(
     # Buscamos notas del cliente
     statement = select(Nota).where(Nota.id_cliente == cliente_id)
 
-    # NOTA: Como dijiste que los clientes se comparten, quitamos el filtro de usuario
-    # para que todos los comerciales puedan ver las notas de los demás.
-    # Si quisieras volver a restringirlo, descomenta esto:
-    # if current_user.rol != "ADMIN":
-    #     statement = statement.where(Nota.id_usuario == current_user.id_usuario)
-
     # Ordenamos: Las más recientes primero
     statement = statement.order_by(Nota.fecha_creacion.desc())
     
@@ -55,7 +49,7 @@ def read_notas_cliente(
 
 
 # --------------------------------------------------------
-# 3. ACTUALIZAR NOTA (PUT) - CON SUPERPODERES ADMIN
+# 3. ACTUALIZAR NOTA (PUT) - LIBRE PARA TODOS
 # --------------------------------------------------------
 @router.put("/{nota_id}", response_model=NotaRead)
 def update_nota(
@@ -69,14 +63,10 @@ def update_nota(
     if not nota:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
         
-    # 2. VERIFICAR PERMISOS (Dueño O Admin)
-    es_dueno = (nota.id_usuario == current_user.id_usuario)
-    es_admin = (current_user.rol == 'ADMIN')
-
-    if not es_dueno and not es_admin:
-        raise HTTPException(status_code=403, detail="No tienes permiso para editar esta nota")
-
-    # 3. Actualizar
+    # --- 🟢 CAMBIO IMPORTANTE: HEMOS QUITADO LA RESTRICCIÓN DE SEGURIDAD ---
+    # Ya no comprobamos si es dueño o admin. Si tiene usuario, puede editar.
+    
+    # 2. Actualizar
     nota.contenido = nota_update.contenido
     session.add(nota)
     session.commit()
@@ -85,7 +75,7 @@ def update_nota(
 
 
 # --------------------------------------------------------
-# 4. ELIMINAR NOTA (DELETE) - CON SUPERPODERES ADMIN
+# 4. ELIMINAR NOTA (DELETE) - LIBRE PARA TODOS
 # --------------------------------------------------------
 @router.delete("/{nota_id}", response_model=dict)
 def delete_nota(
@@ -98,12 +88,8 @@ def delete_nota(
     if not nota:
         raise HTTPException(status_code=404, detail="Nota no encontrada")
     
-    # 2. VERIFICAR PERMISOS (Dueño O Admin)
-    es_dueno = (nota.id_usuario == current_user.id_usuario)
-    es_admin = (current_user.rol == 'ADMIN')
-
-    if not es_dueno and not es_admin:
-        raise HTTPException(status_code=403, detail="No tienes permiso para eliminar esta nota")    
+    # --- 🟢 CAMBIO IMPORTANTE: HEMOS QUITADO LA RESTRICCIÓN DE SEGURIDAD ---
+    # Cualquiera puede borrar.
     
     session.delete(nota)
     session.commit()

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users as UsersIcon, Plus, Edit2, Trash2, Key, ShieldCheck, Shield, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// --- 🛡️ REGLAS DE SEGURIDAD (Deben coincidir con tu Backend) ---
+// ---  REGLAS DE SEGURIDAD (Deben coincidir con Backend) ---
 const REGLAS_PASSWORD = [
   { label: '8+ caracteres', test: (p) => p.length >= 8 },
   { label: 'Mayúscula', test: (p) => /[A-Z]/.test(p) },
@@ -24,7 +24,8 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
         const token = localStorage.getItem('token');
-        const res = await fetch('${import.meta.env.VITE_API_URL}/v1/usuarios/', {
+        // ✅ CORRECCIÓN 1: Comillas invertidas ` `
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/usuarios/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) setUsers(await res.json());
@@ -45,7 +46,7 @@ const Users = () => {
   };
 
   const handleSaveUser = async () => {
-    // 🔒 Validación de seguridad antes de enviar (Solo en creación)
+    //  Validación de seguridad antes de enviar (Solo en creación)
     if (!formData.id_usuario) {
        const esFuerte = REGLAS_PASSWORD.every(r => r.test(formData.password));
        if (!esFuerte) return toast.error("La contraseña no cumple los requisitos de seguridad");
@@ -54,7 +55,12 @@ const Users = () => {
     try {
         const token = localStorage.getItem('token');
         const isEditing = !!formData.id_usuario;
-        const url = isEditing ? `${import.meta.env.VITE_API_URL}/v1/usuarios/${formData.id_usuario}` : '${import.meta.env.VITE_API_URL}/v1/usuarios/';
+        
+      
+        const url = isEditing 
+            ? `${import.meta.env.VITE_API_URL}/v1/usuarios/${formData.id_usuario}` 
+            : `${import.meta.env.VITE_API_URL}/v1/usuarios/`;
+            
         const method = isEditing ? 'PUT' : 'POST';
 
         const res = await fetch(url, {
@@ -81,12 +87,13 @@ const Users = () => {
   };
 
   const handleSaveReset = async () => {
-      // 🔒 Validación de seguridad en el reset
+      //  Validación de seguridad en el reset
       const esFuerte = REGLAS_PASSWORD.every(r => r.test(resetData.new_password));
       if (!esFuerte) return toast.error("La nueva contraseña es demasiado débil");
 
       try {
           const token = localStorage.getItem('token');
+          // ✅ (Esto ya estaba bien, pero ojo con las comillas siempre)
           const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/usuarios/${resetData.id_usuario}/reset-password`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -104,7 +111,11 @@ const Users = () => {
   const handleDelete = async (id) => {
       if(!confirm("¿Eliminar usuario?")) return;
       const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+     
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/usuarios/${id}`, { 
+          method: 'DELETE', 
+          headers: { 'Authorization': `Bearer ${token}` } 
+      });
       if (res.ok) { fetchUsers(); toast.success("Usuario eliminado"); }
   };
 
@@ -198,13 +209,13 @@ const Users = () => {
       {/* MODAL RESET PASSWORD CON VALIDACIÓN VISUAL */}
       {isResetOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-             <div className="bg-white rounded-xl p-6 w-full max-w-sm animate-in zoom-in-95">
-                 <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-yellow-600"><Key /> Cambiar Contraseña</h2>
-                 <input type="password" placeholder="Nueva contraseña" className="border p-2 rounded w-full" autoFocus 
+              <div className="bg-white rounded-xl p-6 w-full max-w-sm animate-in zoom-in-95">
+                  <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-yellow-600"><Key /> Cambiar Contraseña</h2>
+                  <input type="password" placeholder="Nueva contraseña" className="border p-2 rounded w-full" autoFocus 
                         value={resetData.new_password} onChange={e => setResetData({...resetData, new_password: e.target.value})} />
-                 
-                 {/* 🔒 Cuadrícula de requisitos */}
-                 <div className="grid grid-cols-2 gap-2 mt-4 bg-gray-50 p-2 rounded-lg">
+                  
+                  {/* 🔒 Cuadrícula de requisitos */}
+                  <div className="grid grid-cols-2 gap-2 mt-4 bg-gray-50 p-2 rounded-lg">
                     {REGLAS_PASSWORD.map((regla, i) => {
                       const cumplida = regla.test(resetData.new_password || '');
                       return (
@@ -213,13 +224,13 @@ const Users = () => {
                         </div>
                       );
                     })}
-                 </div>
+                  </div>
 
-                 <div className="mt-6 flex justify-end gap-3">
+                  <div className="mt-6 flex justify-end gap-3">
                     <button onClick={() => setIsResetOpen(false)} className="px-4 py-2">Cancelar</button>
                     <button onClick={handleSaveReset} className="bg-yellow-600 text-white px-4 py-2 rounded font-bold">Cambiar</button>
-                 </div>
-             </div>
+                  </div>
+              </div>
           </div>
       )}
     </div>

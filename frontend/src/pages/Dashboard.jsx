@@ -190,27 +190,38 @@ const Dashboard = () => {
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        const resClients = await fetch('${import.meta.env.VITE_API_URL}/v1/clientes/', { headers });
+        // 1. CARGAR CLIENTES (¡AHORA SÍ con backticks correctas!)
+        const resClients = await fetch(`${import.meta.env.VITE_API_URL}/v1/clientes/`, { headers });
         let clientsData = resClients.ok ? await resClients.json() : [];
 
-        if (userRole !== 'admin') {
+        // --- FILTRO COMENTADO PARA QUE SALGAN TODOS LOS NOMBRES ---
+        /* if (userRole !== 'admin') {
             clientsData = clientsData.filter(c => c.id_comercial_propietario === userId);
-        }
+        } */
+        // ----------------------------------------------------------
 
+        // 2. CREAR DICCIONARIO (ID -> Nombre)
         const clientsDictionary = {};
         clientsData.forEach(client => {
-            clientsDictionary[client.id_cliente || client.id] = client.nombre;
+            const id = client.id_cliente || client.id;
+            clientsDictionary[id] = client.nombre;
+            clientsDictionary[String(id)] = client.nombre;
         });
         setClientsMap(clientsDictionary); 
 
-        const resQuotes = await fetch('${import.meta.env.VITE_API_URL}/v1/presupuestos/', { headers });
+        // 3. CARGAR PRESUPUESTOS (¡AHORA SÍ con backticks correctas!)
+        const resQuotes = await fetch(`${import.meta.env.VITE_API_URL}/v1/presupuestos/`, { headers });
         let quotesData = resQuotes.ok ? await resQuotes.json() : [];
 
         if (userRole !== 'admin') {
             quotesData = quotesData.filter(q => q.id_comercial_creador === userId);
         }
 
-        const totalDinero = quotesData.reduce((acc, q) => acc + (q.total_neto || 0), 0);
+        // Calcular totales (Solo aceptados)
+        const totalDinero = quotesData
+            .filter(q => q.estado === 'ACEPTADO')
+            .reduce((acc, q) => acc + (q.total_neto || 0), 0);
+            
         const pendientes = quotesData.filter(q => q.estado === 'PENDIENTE').length;
 
         setStats({
@@ -219,8 +230,10 @@ const Dashboard = () => {
           presupuestosPendientes: pendientes
         });
 
+        // Últimos 10 presupuestos
         const ultimos = [...quotesData].reverse().slice(0, 10);
         setRecentQuotes(ultimos);
+
       } catch (error) {
         console.error("Error:", error);
       } finally {
